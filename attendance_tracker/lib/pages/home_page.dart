@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -65,6 +67,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) {
         return;
       }
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('เปิดกล้องไม่สำเร็จ: $e')));
@@ -162,13 +165,13 @@ class _HomePageState extends State<HomePage> {
   Future<void> handleClockOut() async {
     setState(() => loading = true);
     try {
-      await supabaseService.clockOut(shift: selectedShift.dbValue);
+      await supabaseService.clockOut();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Clock Out สำเร็จ (${selectedShift.label})')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Clock Out สำเร็จ')));
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -201,13 +204,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final showMap = currentLatitude != null && currentLongitude != null;
-    final mapUrl = showMap
-        ? LocationService.buildStaticMapUrl(
-            currentLatitude: currentLatitude!,
-            currentLongitude: currentLongitude!,
-          )
-        : null;
+    final hasCurrentLocation =
+        currentLatitude != null && currentLongitude != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -291,27 +289,16 @@ class _HomePageState extends State<HomePage> {
                       'ระยะห่างจากจุดลงเวลา: ${lastDistance!.toStringAsFixed(0)} เมตร',
                     ),
                   ],
-                  if (showMap && mapUrl != null) ...[
+                  if (hasCurrentLocation) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'แผนที่ย่อ (จุดสีฟ้า = สำนักงาน, จุดสีแดง = ตำแหน่งปัจจุบัน)',
+                      'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=ตำแหน่งปัจจุบัน)',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        mapUrl,
-                        height: 160,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) {
-                          return const SizedBox(
-                            height: 160,
-                            child: Center(child: Text('ไม่สามารถโหลดแผนที่ได้')),
-                          );
-                        },
-                      ),
+                    _AttendanceMap(
+                      currentLatitude: currentLatitude!,
+                      currentLongitude: currentLongitude!,
                     ),
                   ],
                 ],
@@ -341,6 +328,62 @@ class _HomePageState extends State<HomePage> {
             'เงื่อนไข: ต้องแสกนหน้าและอยู่ในรัศมีไม่เกิน 200 เมตรจากจุดทำงาน',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AttendanceMap extends StatelessWidget {
+  const _AttendanceMap({
+    required this.currentLatitude,
+    required this.currentLongitude,
+    this.height = 170,
+  });
+
+  final double currentLatitude;
+  final double currentLongitude;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: height,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(
+              LocationService.officeLatitude,
+              LocationService.officeLongitude,
+            ),
+            initialZoom: 16,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.attendance_tracker',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    LocationService.officeLatitude,
+                    LocationService.officeLongitude,
+                  ),
+                  width: 40,
+                  height: 40,
+                  child: const Icon(Icons.location_on, color: Colors.blue),
+                ),
+                Marker(
+                  point: LatLng(currentLatitude, currentLongitude),
+                  width: 40,
+                  height: 40,
+                  child: const Icon(Icons.location_on, color: Colors.red),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

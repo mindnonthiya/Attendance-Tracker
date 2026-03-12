@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -17,13 +19,22 @@ class _HistoryPageState extends State<HistoryPage> {
 
   List<Map<String, dynamic>> data = [];
   bool loading = true;
+  String? errorMessage;
 
   Future<void> loadData() async {
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
+
     try {
       final response = await supabaseService.history();
       setState(() {
         data = response;
+      });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
       });
     } finally {
       setState(() => loading = false);
@@ -58,11 +69,40 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(
+        appBar: AppBar(title: Text('Attendance History')),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Attendance History')),
+        body: RefreshIndicator(
+          onRefresh: loadData,
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              const SizedBox(height: 80),
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 12),
+              const Text(
+                'โหลดประวัติไม่สำเร็จ',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(errorMessage!, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Attendance History')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : data.isEmpty
+      body: data.isEmpty
           ? RefreshIndicator(
               onRefresh: loadData,
               child: ListView(
@@ -172,13 +212,6 @@ class HistoryDetailPage extends StatelessWidget {
     final longitude = (item['longitude'] as num?)?.toDouble();
     final selfieUrl = item['selfie_url']?.toString();
 
-    final mapUrl = (latitude != null && longitude != null)
-        ? LocationService.buildStaticMapUrl(
-            currentLatitude: latitude,
-            currentLongitude: longitude,
-          )
-        : null;
-
     return Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดประวัติ')),
       body: ListView(
@@ -218,28 +251,63 @@ class HistoryDetailPage extends StatelessWidget {
           Text('ละติจูด: ${latitude?.toStringAsFixed(6) ?? '-'}'),
           Text('ลองจิจูด: ${longitude?.toStringAsFixed(6) ?? '-'}'),
           const SizedBox(height: 12),
-          if (mapUrl != null) ...[
+          if (latitude != null && longitude != null) ...[
             Text(
-              'แผนที่ย่อ (จุดสีฟ้า = สำนักงาน, จุดสีแดง = จุดลงเวลา)',
+              'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=จุดลงเวลา)',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                mapUrl,
-                height: 170,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  height: 170,
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Text('โหลดแผนที่ไม่สำเร็จ'),
-                ),
-              ),
-            ),
+            _HistoryMap(latitude: latitude, longitude: longitude),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _HistoryMap extends StatelessWidget {
+  const _HistoryMap({required this.latitude, required this.longitude});
+
+  final double latitude;
+  final double longitude;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 170,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(latitude, longitude),
+            initialZoom: 16,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.attendance_tracker',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: LatLng(
+                    LocationService.officeLatitude,
+                    LocationService.officeLongitude,
+                  ),
+                  width: 40,
+                  height: 40,
+                  child: const Icon(Icons.location_on, color: Colors.blue),
+                ),
+                Marker(
+                  point: LatLng(latitude, longitude),
+                  width: 40,
+                  height: 40,
+                  child: const Icon(Icons.location_on, color: Colors.red),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

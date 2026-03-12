@@ -59,27 +59,28 @@ class AttendanceSupabaseService {
     });
   }
 
-  Future<void> clockOut({required String shift}) async {
+  Future<void> clockOut({String? shift}) async {
     final user = currentUser;
     if (user == null) {
       throw Exception('Please login first.');
     }
 
-    final today = DateTime.now().toIso8601String().split('T').first;
-
-    final openAttendance = await _client
+    var query = _client
         .from('attendance')
-        .select('id')
+        .select('id, shift, check_in')
         .eq('user_id', user.id)
-        .eq('date', today)
-        .eq('shift', shift)
         .isFilter('check_out', null)
         .order('check_in', ascending: false)
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+    if (shift != null && shift.isNotEmpty) {
+      query = query.eq('shift', shift);
+    }
+
+    final openAttendance = await query.maybeSingle();
 
     if (openAttendance == null) {
-      throw Exception('No active $shift session found. Please clock in first.');
+      throw Exception('ไม่พบรายการ Clock In ที่ยังไม่ Clock Out');
     }
 
     await _client
@@ -100,6 +101,6 @@ class AttendanceSupabaseService {
         .eq('user_id', user.id)
         .order('check_in', ascending: false);
 
-    return response;
+    return List<Map<String, dynamic>>.from(response);
   }
 }
