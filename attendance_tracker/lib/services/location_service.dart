@@ -1,27 +1,53 @@
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
-  static Future<Position> getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+  static const officeLatitude = 13.7563;
+  static const officeLongitude = 100.5018;
+  static const maxDistanceMeters = 200.0;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  static Future<Position> getCurrentLocation() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception('Location services are disabled.');
     }
 
-    permission = await Geolocator.checkPermission();
+    var permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception('Location permissions are permanently denied.');
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw Exception('Location permission is required.');
     }
 
-    return await Geolocator.getCurrentPosition(
+    return Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
+  }
+
+  static double distanceFromOffice({
+    required double latitude,
+    required double longitude,
+  }) {
+    return Geolocator.distanceBetween(
+      officeLatitude,
+      officeLongitude,
+      latitude,
+      longitude,
+    );
+  }
+
+  static bool isWithinOfficeRadius({
+    required double latitude,
+    required double longitude,
+  }) {
+    final distance = distanceFromOffice(
+      latitude: latitude,
+      longitude: longitude,
+    );
+
+    return distance <= maxDistanceMeters;
   }
 }

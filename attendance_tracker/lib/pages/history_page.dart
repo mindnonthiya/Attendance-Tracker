@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+
+import '../services/supabase_service.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -9,22 +11,35 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  final supabase = Supabase.instance.client;
+  final supabaseService = AttendanceSupabaseService();
+  final dateFormat = DateFormat('dd MMM yyyy, HH:mm');
 
-  List data = [];
+  List<Map<String, dynamic>> data = [];
+  bool loading = true;
 
   Future<void> loadData() async {
-    final user = supabase.auth.currentUser;
+    setState(() => loading = true);
+    try {
+      final response = await supabaseService.history();
+      setState(() {
+        data = response;
+      });
+    } finally {
+      setState(() => loading = false);
+    }
+  }
 
-    final response = await supabase
-        .from('attendance')
-        .select()
-        .eq('user_id', user!.id)
-        .order('date', ascending: false);
+  String formatDate(dynamic dateString) {
+    if (dateString == null) {
+      return '-';
+    }
 
-    setState(() {
-      data = response;
-    });
+    final dt = DateTime.tryParse(dateString.toString());
+    if (dt == null) {
+      return dateString.toString();
+    }
+
+    return dateFormat.format(dt.toLocal());
   }
 
   @override
@@ -36,21 +51,43 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Attendance History")),
+      appBar: AppBar(title: const Text('Attendance History')),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: loadData,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: data.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = data[index];
 
-      body: ListView.builder(
-        itemCount: data.length,
-        itemBuilder: (context, index) {
-          final item = data[index];
-
-          return ListTile(
-            title: Text("Date: ${item['date']}"),
-            subtitle: Text(
-              "In: ${item['check_in']}  |  Out: ${item['check_out'] ?? '-'}",
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item['date']} • ${item['shift'] ?? 'general'}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text('In: ${formatDate(item['check_in'])}'),
+                          Text('Out: ${formatDate(item['check_out'])}'),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Lat/Lng: ${item['latitude'] ?? '-'}, ${item['longitude'] ?? '-'}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
-      ),
     );
   }
 }
