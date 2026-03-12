@@ -59,27 +59,41 @@ class AttendanceSupabaseService {
     });
   }
 
-  Future<void> clockOut({required String shift}) async {
+  Future<Map<String, dynamic>?> _findOpenAttendance({String? shift}) async {
     final user = currentUser;
     if (user == null) {
       throw Exception('Please login first.');
     }
 
-    final today = DateTime.now().toIso8601String().split('T').first;
+    final withShift = shift != null && shift.isNotEmpty;
 
-    final openAttendance = await _client
-        .from('attendance')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .eq('shift', shift)
-        .isFilter('check_out', null)
-        .order('check_in', ascending: false)
-        .limit(1)
-        .maybeSingle();
+    return withShift
+        ? _client
+              .from('attendance')
+              .select('id, shift, check_in, check_out')
+              .eq('user_id', user.id)
+              .eq('shift', shift)
+              .isFilter('check_out', null)
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle()
+        : _client
+              .from('attendance')
+              .select('id, shift, check_in, check_out')
+              .eq('user_id', user.id)
+              .isFilter('check_out', null)
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle();
+  }
+
+  Future<void> clockOut({String? shift}) async {
+    final openAttendance = await _findOpenAttendance(shift: shift);
 
     if (openAttendance == null) {
-      throw Exception('No active $shift session found. Please clock in first.');
+      throw Exception(
+        'ไม่พบรายการ Clock In ที่ยังไม่ Clock Out (ตรวจสอบ RLS policy และให้ check_out เป็น NULL ตอน clock in)',
+      );
     }
 
     await _client
@@ -100,6 +114,6 @@ class AttendanceSupabaseService {
         .eq('user_id', user.id)
         .order('check_in', ascending: false);
 
-    return response;
+    return List<Map<String, dynamic>>.from(response);
   }
 }

@@ -38,25 +38,66 @@ class _HomePageState extends State<HomePage> {
 
   AttendanceShift selectedShift = AttendanceShift.morning;
   bool loading = false;
+  bool locationLoading = false;
   Uint8List? selfieBytes;
   double? lastDistance;
+  double? currentLatitude;
+  double? currentLongitude;
 
   Future<void> takeSelfie() async {
-    final photo = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-      maxWidth: 1080,
-    );
+    try {
+      final photo = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1080,
+      );
 
-    if (photo == null) {
-      return;
+      if (photo == null) {
+        return;
+      }
+
+      final bytes = await photo.readAsBytes();
+
+      setState(() {
+        selfieBytes = bytes;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปิดกล้องไม่สำเร็จ: $e')));
     }
+  }
 
-    final bytes = await photo.readAsBytes();
+  Future<void> refreshCurrentLocation() async {
+    setState(() => locationLoading = true);
+    try {
+      final position = await LocationService.getCurrentLocation();
+      final distance = LocationService.distanceFromOffice(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
 
-    setState(() {
-      selfieBytes = bytes;
-    });
+      setState(() {
+        currentLatitude = position.latitude;
+        currentLongitude = position.longitude;
+        lastDistance = distance;
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) {
+        setState(() => locationLoading = false);
+      }
+    }
   }
 
   Future<void> handleClockIn() async {
@@ -76,6 +117,8 @@ class _HomePageState extends State<HomePage> {
       );
 
       setState(() {
+        currentLatitude = position.latitude;
+        currentLongitude = position.longitude;
         lastDistance = distance;
       });
 
@@ -120,13 +163,13 @@ class _HomePageState extends State<HomePage> {
   Future<void> handleClockOut() async {
     setState(() => loading = true);
     try {
-      await supabaseService.clockOut(shift: selectedShift.dbValue);
+      await supabaseService.clockOut();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Clock Out สำเร็จ (${selectedShift.label})')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Clock Out สำเร็จ')));
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -152,7 +195,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    refreshCurrentLocation();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasCurrentLocation =
+        currentLatitude != null && currentLongitude != null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Attendance Tracker'),
@@ -214,16 +266,39 @@ class _HomePageState extends State<HomePage> {
                       child: Image.memory(
                         selfieBytes!,
                         height: 160,
+                        width: double.infinity,
                         fit: BoxFit.cover,
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: locationLoading ? null : refreshCurrentLocation,
+                    icon: const Icon(Icons.my_location),
+                    label: Text(
+                      locationLoading
+                          ? 'กำลังอัปเดตตำแหน่ง...'
+                          : 'อัปเดตตำแหน่งปัจจุบัน',
+                    ),
+                  ),
                   if (lastDistance != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Text(
                       'ระยะห่างจากจุดลงเวลา: ${lastDistance!.toStringAsFixed(0)} เมตร',
                     ),
                   ],
+                  const SizedBox(height: 10),
+                  Text(
+                    hasCurrentLocation
+                        ? 'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=ตำแหน่งปัจจุบัน)'
+                        : 'แผนที่ย่อสำนักงาน (กดอัปเดตตำแหน่งเพื่อแสดงจุดสีแดง)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  _StaticAttendanceMap(
+                    currentLatitude: currentLatitude,
+                    currentLongitude: currentLongitude,
+                  ),
                 ],
               ),
             ),
@@ -251,6 +326,42 @@ class _HomePageState extends State<HomePage> {
             'เงื่อนไข: ต้องแสกนหน้าและอยู่ในรัศมีไม่เกิน 200 เมตรจากจุดทำงาน',
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StaticAttendanceMap extends StatelessWidget {
+  const _StaticAttendanceMap({
+    required this.currentLatitude,
+    required this.currentLongitude,
+  });
+
+  final double? currentLatitude;
+  final double? currentLongitude;
+
+  @override
+  Widget build(BuildContext context) {
+    final mapUrl = LocationService.buildStaticMapUrl(
+      currentLatitude: currentLatitude,
+      currentLongitude: currentLongitude,
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        mapUrl,
+        height: 170,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return Container(
+            height: 170,
+            color: Colors.grey.shade200,
+            alignment: Alignment.center,
+            child: const Text('ไม่สามารถโหลดแผนที่ได้ (ตรวจสอบอินเทอร์เน็ต)'),
+          );
+        },
       ),
     );
   }

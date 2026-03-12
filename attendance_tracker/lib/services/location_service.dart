@@ -23,7 +23,7 @@ class LocationService {
     }
 
     return Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     );
   }
 
@@ -49,5 +49,22 @@ class LocationService {
     );
 
     return distance <= maxDistanceMeters;
+  }
+
+  static String buildStaticMapUrl({
+    double? currentLatitude,
+    double? currentLongitude,
+    int width = 650,
+    int height = 300,
+    int zoom = 16,
+  }) {
+    final officePoint = '$officeLongitude,$officeLatitude,pm2blm';
+    final currentPoint = currentLatitude != null && currentLongitude != null
+        ? '~$currentLongitude,$currentLatitude,pm2rdm'
+        : '';
+
+    return 'https://static-maps.yandex.ru/1.x/?'
+        'lang=en_US&l=map&z=$zoom&size=${width},$height&'
+        'll=$officeLongitude,$officeLatitude&pt=$officePoint$currentPoint';
   }
 }
