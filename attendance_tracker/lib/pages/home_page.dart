@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
+import 'history_page.dart';
 import 'login_page.dart';
 
 enum AttendanceShift { morning, afternoon, evening }
@@ -84,6 +85,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void openHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HistoryPage()),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -146,6 +154,11 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(['Home', 'Check In', 'Check Out', 'Map'][selectedTab]),
         actions: [
+          IconButton(
+            onPressed: openHistory,
+            icon: const Icon(Icons.history),
+            tooltip: 'History',
+          ),
           IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
         ],
       ),
@@ -191,66 +204,120 @@ class _HomeDashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeText = DateFormat('HH:mm:ss').format(now);
+    final timeText = DateFormat('h:mm').format(now);
+    final period = DateFormat('a').format(now);
     final dateText = DateFormat('EEE, dd MMM yyyy').format(now);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userLabel,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'เวลาปัจจุบัน',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  timeText,
-                  style: const TextStyle(
-                    fontSize: 44,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A2A5A),
-                  ),
-                ),
-                Text(dateText),
-              ],
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF182C74), Color(0xFFE0263D)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
             ),
           ),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 96),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                userLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Text(
+                'Welcome back',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
-        Card(
+        Transform.translate(
+          offset: const Offset(0, -78),
           child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('ตำแหน่งปัจจุบัน', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(
-                  currentLatitude != null && currentLongitude != null
-                      ? '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}'
-                      : 'ยังไม่มีข้อมูลตำแหน่ง',
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: timeText,
+                            style: const TextStyle(
+                              color: Color(0xFF1A2A5A),
+                              fontSize: 58,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ' $period',
+                            style: const TextStyle(
+                              color: Color(0xFFE0263D),
+                              fontSize: 26,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      dateText,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF28365F),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Icon(Icons.location_on, color: Color(0xFF59B96D), size: 40),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'PT Tricor Orisoft Indonesia',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 23,
+                        color: Color(0xFF1A2A5A),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      currentLatitude != null && currentLongitude != null
+                          ? '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}'
+                          : 'กดอัปเดตตำแหน่งเพื่อแสดงพิกัดปัจจุบัน',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Color(0xFF6A6F7D)),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: locationLoading ? null : onRefreshLocation,
+                        icon: const Icon(Icons.my_location),
+                        label: Text(
+                          locationLoading
+                              ? 'กำลังอัปเดตตำแหน่ง...'
+                              : 'อัปเดตตำแหน่งปัจจุบัน',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: locationLoading ? null : onRefreshLocation,
-                  icon: const Icon(Icons.my_location),
-                  label: Text(
-                    locationLoading
-                        ? 'กำลังอัปเดตตำแหน่ง...'
-                        : 'อัปเดตตำแหน่งปัจจุบัน',
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -380,21 +447,52 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.action == AttendanceAction.checkIn
-        ? 'หน้าลงเวลาเข้า (Check In)'
-        : 'หน้าลงเวลาออก (Check Out)';
+    final isCheckIn = widget.action == AttendanceAction.checkIn;
+    final headerColor = isCheckIn ? const Color(0xFF275DF2) : const Color(0xFF933EF2);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              colors: [headerColor, headerColor.withOpacity(0.72)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isCheckIn ? 'Check In' : 'Check Out',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
+                const Text(
+                  '1) เลือกกะการทำงาน',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
                 SegmentedButton<AttendanceShift>(
                   segments: AttendanceShift.values
                       .map(
@@ -409,37 +507,49 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
                     setState(() => selectedShift = selection.first);
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                const Text(
+                  '2) สแกนหน้า (ถ่ายรูป)',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
                 FilledButton.tonalIcon(
                   onPressed: loading ? null : takeSelfie,
                   icon: const Icon(Icons.camera_alt_outlined),
-                  label: Text(
-                    selfieBytes == null ? 'สแกนหน้า (ถ่ายรูป)' : 'สแกนใหม่',
-                  ),
+                  label: Text(selfieBytes == null ? 'สแกนหน้า' : 'สแกนใหม่'),
                 ),
                 if (selfieBytes != null) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Image.memory(
                       selfieBytes!,
-                      height: 160,
+                      height: 168,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
                   ),
                 ],
                 if (lastDistance != null) ...[
-                  const SizedBox(height: 10),
-                  Text('ระยะห่างล่าสุด: ${lastDistance!.toStringAsFixed(0)} เมตร'),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF3FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Text('ระยะห่างล่าสุด: ${lastDistance!.toStringAsFixed(0)} เมตร'),
+                  ),
                 ],
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: loading ? null : submitAction,
-                  child: Text(
-                    widget.action == AttendanceAction.checkIn
-                        ? 'ยืนยัน Check In'
-                        : 'ยืนยัน Check Out',
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: loading ? null : submitAction,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: headerColor,
+                    ),
+                    child: Text(isCheckIn ? 'ยืนยัน Check In' : 'ยืนยัน Check Out'),
                   ),
                 ),
               ],
@@ -545,7 +655,11 @@ class _MapTabState extends State<_MapTab> {
         ? LatLng(widget.currentLatitude!, widget.currentLongitude!)
         : null;
 
-    final points = [office, if (current != null) current, if (searchPoint != null) searchPoint!];
+    final points = [
+      office,
+      if (current != null) current,
+      if (searchPoint != null) searchPoint!,
+    ];
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -667,7 +781,9 @@ class _MapTabState extends State<_MapTab> {
           ),
         ),
         const SizedBox(height: 10),
-        Text('หมุดน้ำเงิน: สำนักงาน • จุดฟ้า: ตำแหน่งปัจจุบัน • หมุดส้ม: ผลการค้นหา'),
+        const Text(
+          'หมุดน้ำเงิน: สำนักงาน • จุดฟ้า: ตำแหน่งปัจจุบัน • หมุดส้ม: ผลการค้นหา',
+        ),
         if (searchLabel != null) ...[
           const SizedBox(height: 6),
           Text('ผลการค้นหา: $searchLabel'),
