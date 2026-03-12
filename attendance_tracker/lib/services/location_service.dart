@@ -1,5 +1,8 @@
 import 'package:geolocator/geolocator.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 class LocationService {
   static const officeLatitude = 14.03820;
   static const officeLongitude = 100.61732;
@@ -49,6 +52,33 @@ class LocationService {
     );
 
     return distance <= maxDistanceMeters;
+  }
+
+  static Future<String?> getAddressFromLatLng(double lat, double lon) async {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/reverse', {
+      'lat': lat.toString(),
+      'lon': lon.toString(),
+      'format': 'jsonv2',
+      'addressdetails': '1',
+    });
+
+    final response = await http.get(
+      uri,
+      headers: {'User-Agent': 'attendance-tracker'},
+    );
+
+    if (response.statusCode != 200) return null;
+
+    final data = jsonDecode(response.body);
+    final address = data['address'];
+
+    final house = address['house_number'] ?? '';
+    final road = address['road'] ?? '';
+    final subdistrict = address['suburb'] ?? address['village'] ?? '';
+    final district = address['county'] ?? '';
+    final province = address['state'] ?? '';
+
+    return "$house $road $subdistrict $district $province".trim();
   }
 
   static String buildStaticMapUrl({

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -111,11 +113,6 @@ class _HistoryPageState extends State<HistoryPage> {
                   const SizedBox(height: 12),
                   const Center(child: Text('ยังไม่มีข้อมูลประวัติลงเวลา')),
                   const SizedBox(height: 8),
-                  const Text(
-                    'สาเหตุที่พบบ่อย: \n1) user_id ในตารางไม่ตรงกับผู้ใช้ที่ล็อกอิน \n2) RLS ไม่อนุญาตให้ select \n3) ยังไม่ได้ clock in สำเร็จจริง',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
                   Text(
                     'Current user: ${supabaseService.currentUser?.id ?? '-'}',
                     textAlign: TextAlign.center,
@@ -132,35 +129,37 @@ class _HistoryPageState extends State<HistoryPage> {
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final item = data[index];
-                  final selfieUrl = item['selfie_url']?.toString();
+                  final selfieUrl =
+                      item['selfie_display_url']?.toString() ??
+                      item['selfie_url']?.toString();
 
                   return Card(
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(20),
                       onTap: () => openDetail(item),
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(14),
                               child: selfieUrl != null && selfieUrl.isNotEmpty
                                   ? Image.network(
                                       selfieUrl,
-                                      width: 72,
-                                      height: 72,
+                                      width: 82,
+                                      height: 82,
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, _, _) => Container(
-                                        width: 72,
-                                        height: 72,
+                                        width: 82,
+                                        height: 82,
                                         color: Colors.grey.shade200,
                                         child: const Icon(Icons.broken_image),
                                       ),
                                     )
                                   : Container(
-                                      width: 72,
-                                      height: 72,
+                                      width: 82,
+                                      height: 82,
                                       color: Colors.grey.shade200,
                                       child: const Icon(
                                         Icons.image_not_supported,
@@ -181,12 +180,17 @@ class _HistoryPageState extends State<HistoryPage> {
                                   const SizedBox(height: 8),
                                   Text('In: ${formatDate(item['check_in'])}'),
                                   Text('Out: ${formatDate(item['check_out'])}'),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'กดเพื่อดูรายละเอียด',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF1F5FF),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                    child: const Text('แตะเพื่อดูรายละเอียด'),
                                   ),
                                 ],
                               ),
@@ -226,7 +230,9 @@ class HistoryDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final latitude = (item['latitude'] as num?)?.toDouble();
     final longitude = (item['longitude'] as num?)?.toDouble();
-    final selfieUrl = item['selfie_url']?.toString();
+    final selfieUrl =
+        item['selfie_display_url']?.toString() ??
+        item['selfie_url']?.toString();
 
     return Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดประวัติ')),
@@ -235,13 +241,13 @@ class HistoryDetailPage extends StatelessWidget {
         children: [
           if (selfieUrl != null && selfieUrl.isNotEmpty)
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               child: Image.network(
                 selfieUrl,
-                height: 220,
+                height: 240,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
-                  height: 220,
+                  height: 240,
                   color: Colors.grey.shade200,
                   alignment: Alignment.center,
                   child: const Text('โหลดรูปไม่สำเร็จ'),
@@ -250,10 +256,10 @@ class HistoryDetailPage extends StatelessWidget {
             )
           else
             Container(
-              height: 220,
+              height: 240,
               decoration: BoxDecoration(
                 color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               alignment: Alignment.center,
               child: const Text('ไม่มีรูปถ่าย'),
@@ -269,11 +275,11 @@ class HistoryDetailPage extends StatelessWidget {
           const SizedBox(height: 12),
           if (latitude != null && longitude != null) ...[
             Text(
-              'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=จุดลงเวลา)',
+              'จุดฟ้า = ตำแหน่งที่ลงเวลา • หมุด = สำนักงาน',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            _HistoryStaticMap(latitude: latitude, longitude: longitude),
+            _HistoryMap(latitude: latitude, longitude: longitude),
           ] else
             const Text('ไม่มีพิกัดในรายการนี้ จึงไม่สามารถแสดงแผนที่ได้'),
         ],
@@ -282,30 +288,71 @@ class HistoryDetailPage extends StatelessWidget {
   }
 }
 
-class _HistoryStaticMap extends StatelessWidget {
-  const _HistoryStaticMap({required this.latitude, required this.longitude});
+class _HistoryMap extends StatelessWidget {
+  const _HistoryMap({required this.latitude, required this.longitude});
 
   final double latitude;
   final double longitude;
 
   @override
   Widget build(BuildContext context) {
-    final mapUrl = LocationService.buildStaticMapUrl(
-      currentLatitude: latitude,
-      currentLongitude: longitude,
+    final office = LatLng(
+      LocationService.officeLatitude,
+      LocationService.officeLongitude,
     );
+    final attendancePoint = LatLng(latitude, longitude);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        mapUrl,
-        height: 170,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => Container(
-          height: 170,
-          color: Colors.grey.shade200,
-          alignment: Alignment.center,
-          child: const Text('โหลดแผนที่ไม่สำเร็จ'),
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 220,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: attendancePoint,
+            initialZoom: 17,
+            cameraConstraint: CameraConstraint.contain(
+              bounds: LatLngBounds.fromPoints([office, attendancePoint]),
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.attendance_tracker',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: office,
+                  width: 40,
+                  height: 40,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Color(0xFF1F3C88),
+                    size: 34,
+                  ),
+                ),
+                Marker(
+                  point: attendancePoint,
+                  width: 20,
+                  height: 20,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2596FF),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x662596FF),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

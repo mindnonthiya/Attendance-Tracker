@@ -23,6 +23,10 @@ class MyApp extends StatelessWidget {
       useMaterial3: true,
       colorSchemeSeed: const Color(0xFF3F7BFA),
       scaffoldBackgroundColor: const Color(0xFFF6F8FC),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFFF6F8FC),
+        surfaceTintColor: Colors.transparent,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
@@ -34,8 +38,24 @@ class MyApp extends StatelessWidget {
       cardTheme: CardThemeData(
         color: Colors.white,
         margin: EdgeInsets.zero,
-        elevation: 0,
+        elevation: 1,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
       ),
     );
 
