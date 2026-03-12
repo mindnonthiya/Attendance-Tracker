@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -131,7 +133,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
 
-      final selfieUrl = await supabaseService.uploadSelfie(
+      final selfiePath = await supabaseService.uploadSelfie(
         selfieBytes: selfieBytes!,
       );
 
@@ -139,7 +141,7 @@ class _HomePageState extends State<HomePage> {
         shift: selectedShift.dbValue,
         latitude: position.latitude,
         longitude: position.longitude,
-        selfieUrl: selfieUrl,
+        selfieUrl: selfiePath,
       );
 
       if (!mounted) {
@@ -224,6 +226,38 @@ class _HomePageState extends State<HomePage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4E78FF), Color(0xFF67B9FF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ลงเวลางานวันนี้',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  hasCurrentLocation
+                      ? 'ตำแหน่งพร้อมแล้ว • แตะ Clock In ได้เลย'
+                      : 'กำลังรอตำแหน่งปัจจุบัน...',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -283,19 +317,31 @@ class _HomePageState extends State<HomePage> {
                   ),
                   if (lastDistance != null) ...[
                     const SizedBox(height: 10),
-                    Text(
-                      'ระยะห่างจากจุดลงเวลา: ${lastDistance!.toStringAsFixed(0)} เมตร',
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: lastDistance! <= LocationService.maxDistanceMeters
+                            ? const Color(0xFFEAF8EF)
+                            : const Color(0xFFFFF1F1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'ระยะห่าง: ${lastDistance!.toStringAsFixed(0)} เมตร',
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Text(
                     hasCurrentLocation
-                        ? 'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=ตำแหน่งปัจจุบัน)'
-                        : 'แผนที่ย่อสำนักงาน (กดอัปเดตตำแหน่งเพื่อแสดงจุดสีแดง)',
+                        ? 'จุดฟ้า = ตำแหน่งปัจจุบัน • หมุด = จุดลงเวลา'
+                        : 'แสดงจุดลงเวลาออฟฟิศ (กดอัปเดตเพื่อแสดงจุดฟ้า)',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
-                  _StaticAttendanceMap(
+                  _AttendanceMap(
                     currentLatitude: currentLatitude,
                     currentLongitude: currentLongitude,
                   ),
@@ -331,8 +377,8 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _StaticAttendanceMap extends StatelessWidget {
-  const _StaticAttendanceMap({
+class _AttendanceMap extends StatelessWidget {
+  const _AttendanceMap({
     required this.currentLatitude,
     required this.currentLongitude,
   });
@@ -342,26 +388,84 @@ class _StaticAttendanceMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mapUrl = LocationService.buildStaticMapUrl(
-      currentLatitude: currentLatitude,
-      currentLongitude: currentLongitude,
+    final office = LatLng(
+      LocationService.officeLatitude,
+      LocationService.officeLongitude,
     );
+    final current = currentLatitude != null && currentLongitude != null
+        ? LatLng(currentLatitude!, currentLongitude!)
+        : null;
+
+    final points = [office, if (current != null) current];
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        mapUrl,
-        height: 170,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          return Container(
-            height: 170,
-            color: Colors.grey.shade200,
-            alignment: Alignment.center,
-            child: const Text('ไม่สามารถโหลดแผนที่ได้ (ตรวจสอบอินเทอร์เน็ต)'),
-          );
-        },
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        height: 240,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: current ?? office,
+            initialZoom: current == null ? 16 : 17,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom,
+            ),
+            cameraConstraint: CameraConstraint.contain(
+              bounds: LatLngBounds.fromPoints(points),
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.attendance_tracker',
+            ),
+            CircleLayer(
+              circles: [
+                CircleMarker(
+                  point: office,
+                  color: const Color(0x1A4E78FF),
+                  borderColor: const Color(0xFF4E78FF),
+                  borderStrokeWidth: 2,
+                  radius: 80,
+                  useRadiusInMeter: true,
+                ),
+              ],
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: office,
+                  width: 44,
+                  height: 44,
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Color(0xFF1F3C88),
+                    size: 36,
+                  ),
+                ),
+                if (current != null)
+                  Marker(
+                    point: current,
+                    width: 20,
+                    height: 20,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2596FF),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x662596FF),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

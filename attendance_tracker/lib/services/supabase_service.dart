@@ -31,9 +31,50 @@ class AttendanceSupabaseService {
       await _client.storage
           .from('attendance-selfie')
           .uploadBinary(path, selfieBytes);
-      return _client.storage.from('attendance-selfie').getPublicUrl(path);
+      return path;
     } catch (_) {
       return null;
+    }
+  }
+
+  String _extractStoragePath(String raw) {
+    final normalized = raw.trim();
+    if (normalized.startsWith('attendance-selfie/')) {
+      return normalized.replaceFirst('attendance-selfie/', '');
+    }
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || !uri.hasScheme) {
+      return normalized;
+    }
+
+    final segments = uri.pathSegments;
+    final bucketIndex = segments.indexOf('attendance-selfie');
+    if (bucketIndex != -1 && bucketIndex < segments.length - 1) {
+      final objectSegments = segments.sublist(bucketIndex + 1);
+      return Uri.decodeComponent(objectSegments.join('/'));
+    }
+
+    return normalized;
+  }
+
+  Future<String?> _buildDisplaySelfieUrl(String? raw) async {
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+
+    final normalized = raw.trim();
+    if (normalized.contains('/object/public/attendance-selfie/')) {
+      return normalized;
+    }
+
+    final path = _extractStoragePath(normalized);
+    try {
+      return await _client.storage
+          .from('attendance-selfie')
+          .createSignedUrl(path, 60 * 60);
+    } catch (_) {
+      return normalized;
     }
   }
 
@@ -114,6 +155,13 @@ class AttendanceSupabaseService {
         .eq('user_id', user.id)
         .order('check_in', ascending: false);
 
-    return List<Map<String, dynamic>>.from(response);
+    final records = List<Map<String, dynamic>>.from(response);
+    for (final record in records) {
+      record['selfie_display_url'] = await _buildDisplaySelfieUrl(
+        record['selfie_url']?.toString(),
+      );
+    }
+
+    return records;
   }
 }
