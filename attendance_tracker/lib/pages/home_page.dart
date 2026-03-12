@@ -1,9 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -289,18 +287,18 @@ class _HomePageState extends State<HomePage> {
                       'ระยะห่างจากจุดลงเวลา: ${lastDistance!.toStringAsFixed(0)} เมตร',
                     ),
                   ],
-                  if (hasCurrentLocation) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=ตำแหน่งปัจจุบัน)',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    _AttendanceMap(
-                      currentLatitude: currentLatitude!,
-                      currentLongitude: currentLongitude!,
-                    ),
-                  ],
+                  const SizedBox(height: 10),
+                  Text(
+                    hasCurrentLocation
+                        ? 'แผนที่ย่อ (ฟ้า=สำนักงาน / แดง=ตำแหน่งปัจจุบัน)'
+                        : 'แผนที่ย่อสำนักงาน (กดอัปเดตตำแหน่งเพื่อแสดงจุดสีแดง)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  _StaticAttendanceMap(
+                    currentLatitude: currentLatitude,
+                    currentLongitude: currentLongitude,
+                  ),
                 ],
               ),
             ),
@@ -333,55 +331,37 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _AttendanceMap extends StatelessWidget {
-  const _AttendanceMap({
+class _StaticAttendanceMap extends StatelessWidget {
+  const _StaticAttendanceMap({
     required this.currentLatitude,
     required this.currentLongitude,
   });
 
-  final double currentLatitude;
-  final double currentLongitude;
+  final double? currentLatitude;
+  final double? currentLongitude;
 
   @override
   Widget build(BuildContext context) {
+    final mapUrl = LocationService.buildStaticMapUrl(
+      currentLatitude: currentLatitude,
+      currentLongitude: currentLongitude,
+    );
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
+      child: Image.network(
+        mapUrl,
         height: 170,
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: LatLng(
-              LocationService.officeLatitude,
-              LocationService.officeLongitude,
-            ),
-            initialZoom: 16,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.attendance_tracker',
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(
-                    LocationService.officeLatitude,
-                    LocationService.officeLongitude,
-                  ),
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.blue),
-                ),
-                Marker(
-                  point: LatLng(currentLatitude, currentLongitude),
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.red),
-                ),
-              ],
-            ),
-          ],
-        ),
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return Container(
+            height: 170,
+            color: Colors.grey.shade200,
+            alignment: Alignment.center,
+            child: const Text('ไม่สามารถโหลดแผนที่ได้ (ตรวจสอบอินเทอร์เน็ต)'),
+          );
+        },
       ),
     );
   }

@@ -52,4 +52,23 @@ class LocationService {
 
     return distance <= maxDistanceMeters;
   }
+
+  static String buildStaticMapUrl({
+    double? currentLatitude,
+    double? currentLongitude,
+    int width = 720,
+    int height = 320,
+    int zoom = 16,
+  }) {
+    final markers = <String>['$officeLatitude,$officeLongitude,lightblue1'];
+
+    if (currentLatitude != null && currentLongitude != null) {
+      markers.add('$currentLatitude,$currentLongitude,red-pushpin');
+    }
+
+    return 'https://staticmap.openstreetmap.de/staticmap.php?'
+        'center=$officeLatitude,$officeLongitude&'
+        'zoom=$zoom&size=${width}x$height&maptype=mapnik&'
+        'markers=${markers.join('|')}';
+  }
 }

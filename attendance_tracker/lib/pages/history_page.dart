@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
@@ -106,10 +104,22 @@ class _HistoryPageState extends State<HistoryPage> {
           ? RefreshIndicator(
               onRefresh: loadData,
               child: ListView(
-                children: const [
-                  SizedBox(height: 150),
-                  Center(
-                    child: Text('ยังไม่มีข้อมูลประวัติลงเวลา'),
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const SizedBox(height: 120),
+                  const Icon(Icons.history_toggle_off, size: 48),
+                  const SizedBox(height: 12),
+                  const Center(child: Text('ยังไม่มีข้อมูลประวัติลงเวลา')),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'สาเหตุที่พบบ่อย: \n1) user_id ในตารางไม่ตรงกับผู้ใช้ที่ล็อกอิน \n2) RLS ไม่อนุญาตให้ select \n3) ยังไม่ได้ clock in สำเร็จจริง',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Current user: ${supabaseService.currentUser?.id ?? '-'}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -257,56 +267,39 @@ class HistoryDetailPage extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
-            _HistoryMap(latitude: latitude, longitude: longitude),
-          ],
+            _HistoryStaticMap(latitude: latitude, longitude: longitude),
+          ] else
+            const Text('ไม่มีพิกัดในรายการนี้ จึงไม่สามารถแสดงแผนที่ได้'),
         ],
       ),
     );
   }
 }
 
-class _HistoryMap extends StatelessWidget {
-  const _HistoryMap({required this.latitude, required this.longitude});
+class _HistoryStaticMap extends StatelessWidget {
+  const _HistoryStaticMap({required this.latitude, required this.longitude});
 
   final double latitude;
   final double longitude;
 
   @override
   Widget build(BuildContext context) {
+    final mapUrl = LocationService.buildStaticMapUrl(
+      currentLatitude: latitude,
+      currentLongitude: longitude,
+    );
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
+      child: Image.network(
+        mapUrl,
         height: 170,
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: LatLng(latitude, longitude),
-            initialZoom: 16,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.attendance_tracker',
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(
-                    LocationService.officeLatitude,
-                    LocationService.officeLongitude,
-                  ),
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.blue),
-                ),
-                Marker(
-                  point: LatLng(latitude, longitude),
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.red),
-                ),
-              ],
-            ),
-          ],
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(
+          height: 170,
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const Text('โหลดแผนที่ไม่สำเร็จ'),
         ),
       ),
     );

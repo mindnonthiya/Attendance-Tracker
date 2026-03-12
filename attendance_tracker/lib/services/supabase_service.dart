@@ -59,16 +59,18 @@ class AttendanceSupabaseService {
     });
   }
 
-  Future<void> clockOut({String? shift}) async {
+  Future<Map<String, dynamic>?> _findOpenAttendance({String? shift}) async {
     final user = currentUser;
     if (user == null) {
       throw Exception('Please login first.');
     }
 
-    final openAttendance = shift != null && shift.isNotEmpty
+    final withShift = shift != null && shift.isNotEmpty;
+
+    final nullCheckOut = withShift
         ? await _client
               .from('attendance')
-              .select('id, shift, check_in')
+              .select('id, shift, check_in, check_out')
               .eq('user_id', user.id)
               .eq('shift', shift)
               .isFilter('check_out', null)
@@ -77,15 +79,46 @@ class AttendanceSupabaseService {
               .maybeSingle()
         : await _client
               .from('attendance')
-              .select('id, shift, check_in')
+              .select('id, shift, check_in, check_out')
               .eq('user_id', user.id)
               .isFilter('check_out', null)
               .order('check_in', ascending: false)
               .limit(1)
               .maybeSingle();
 
+    if (nullCheckOut != null) {
+      return nullCheckOut;
+    }
+
+    final emptyStringCheckOut = withShift
+        ? await _client
+              .from('attendance')
+              .select('id, shift, check_in, check_out')
+              .eq('user_id', user.id)
+              .eq('shift', shift)
+              .eq('check_out', '')
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle()
+        : await _client
+              .from('attendance')
+              .select('id, shift, check_in, check_out')
+              .eq('user_id', user.id)
+              .eq('check_out', '')
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle();
+
+    return emptyStringCheckOut;
+  }
+
+  Future<void> clockOut({String? shift}) async {
+    final openAttendance = await _findOpenAttendance(shift: shift);
+
     if (openAttendance == null) {
-      throw Exception('ไม่พบรายการ Clock In ที่ยังไม่ Clock Out');
+      throw Exception(
+        'ไม่พบรายการ Clock In ที่ยังไม่ Clock Out (ตรวจสอบ RLS policy และคอลัมน์ check_out ต้องเป็น null ตอน clock in)',
+      );
     }
 
     await _client
