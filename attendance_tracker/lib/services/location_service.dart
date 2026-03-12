@@ -74,11 +74,23 @@ class LocationService {
 
     final house = address['house_number'] ?? '';
     final road = address['road'] ?? '';
-    final subdistrict = address['suburb'] ?? address['village'] ?? '';
-    final district = address['county'] ?? '';
+    final village = address['village'] ?? '';
+    final hamlet = address['hamlet'] ?? '';
+    final subdistrict = address['suburb'] ?? address['city_district'] ?? '';
+    final district = address['county'] ?? address['district'] ?? '';
     final province = address['state'] ?? '';
+    final postcode = address['postcode'] ?? '';
 
-    return "$house $road $subdistrict $district $province".trim();
+    return [
+      house,
+      road,
+      village,
+      hamlet,
+      subdistrict,
+      district,
+      province,
+      postcode,
+    ].where((e) => e.isNotEmpty).join(' ');
   }
 
   static String buildStaticMapUrl({

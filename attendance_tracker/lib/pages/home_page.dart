@@ -467,8 +467,8 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   Widget build(BuildContext context) {
     final isCheckIn = widget.action == AttendanceAction.checkIn;
     final headerColor = isCheckIn
-        ? const Color(0xFF275DF2)
-        : const Color(0xFF933EF2);
+        ? const Color.fromARGB(255, 19, 133, 51)
+        : const Color.fromARGB(255, 155, 31, 41);
 
     return ListView(
       padding: const EdgeInsets.all(16),
