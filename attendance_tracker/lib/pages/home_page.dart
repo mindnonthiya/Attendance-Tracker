@@ -337,19 +337,17 @@ class _AttendanceMap extends StatelessWidget {
   const _AttendanceMap({
     required this.currentLatitude,
     required this.currentLongitude,
-    this.height = 170,
   });
 
   final double currentLatitude;
   final double currentLongitude;
-  final double height;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
-        height: height,
+        height: 170,
         child: FlutterMap(
           options: MapOptions(
             initialCenter: LatLng(

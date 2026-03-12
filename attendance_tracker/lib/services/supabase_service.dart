@@ -65,19 +65,24 @@ class AttendanceSupabaseService {
       throw Exception('Please login first.');
     }
 
-    var query = _client
-        .from('attendance')
-        .select('id, shift, check_in')
-        .eq('user_id', user.id)
-        .isFilter('check_out', null)
-        .order('check_in', ascending: false)
-        .limit(1);
-
-    if (shift != null && shift.isNotEmpty) {
-      query = query.eq('shift', shift);
-    }
-
-    final openAttendance = await query.maybeSingle();
+    final openAttendance = shift != null && shift.isNotEmpty
+        ? await _client
+              .from('attendance')
+              .select('id, shift, check_in')
+              .eq('user_id', user.id)
+              .eq('shift', shift)
+              .isFilter('check_out', null)
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle()
+        : await _client
+              .from('attendance')
+              .select('id, shift, check_in')
+              .eq('user_id', user.id)
+              .isFilter('check_out', null)
+              .order('check_in', ascending: false)
+              .limit(1)
+              .maybeSingle();
 
     if (openAttendance == null) {
       throw Exception('ไม่พบรายการ Clock In ที่ยังไม่ Clock Out');

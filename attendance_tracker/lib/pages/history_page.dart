@@ -70,9 +70,9 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Scaffold(
-        appBar: AppBar(title: Text('Attendance History')),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(title: const Text('Attendance History')),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
