@@ -50,4 +50,21 @@ class LocationService {
 
     return distance <= maxDistanceMeters;
   }
+
+  static String buildStaticMapUrl({
+    required double currentLatitude,
+    required double currentLongitude,
+    int width = 600,
+    int height = 260,
+    int zoom = 16,
+  }) {
+    final markers = [
+      '$officeLatitude,$officeLongitude,lightblue1',
+      '$currentLatitude,$currentLongitude,red-pushpin',
+    ].join('|');
+
+    return 'https://staticmap.openstreetmap.de/staticmap.php?'
+        'center=$officeLatitude,$officeLongitude&'
+        'zoom=$zoom&size=${width}x$height&maptype=mapnik&markers=$markers';
+  }
 }
