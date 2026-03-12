@@ -56,19 +56,17 @@ class LocationService {
   static String buildStaticMapUrl({
     double? currentLatitude,
     double? currentLongitude,
-    int width = 720,
-    int height = 320,
+    int width = 650,
+    int height = 300,
     int zoom = 16,
   }) {
-    final markers = <String>['$officeLatitude,$officeLongitude,lightblue1'];
+    final officePoint = '$officeLongitude,$officeLatitude,pm2blm';
+    final currentPoint = currentLatitude != null && currentLongitude != null
+        ? '~$currentLongitude,$currentLatitude,pm2rdm'
+        : '';
 
-    if (currentLatitude != null && currentLongitude != null) {
-      markers.add('$currentLatitude,$currentLongitude,red-pushpin');
-    }
-
-    return 'https://staticmap.openstreetmap.de/staticmap.php?'
-        'center=$officeLatitude,$officeLongitude&'
-        'zoom=$zoom&size=${width}x$height&maptype=mapnik&'
-        'markers=${markers.join('|')}';
+    return 'https://static-maps.yandex.ru/1.x/?'
+        'lang=en_US&l=map&z=$zoom&size=${width},$height&'
+        'll=$officeLongitude,$officeLatitude&pt=$officePoint$currentPoint';
   }
 }

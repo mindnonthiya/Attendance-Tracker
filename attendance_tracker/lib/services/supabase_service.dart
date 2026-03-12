@@ -67,8 +67,8 @@ class AttendanceSupabaseService {
 
     final withShift = shift != null && shift.isNotEmpty;
 
-    final nullCheckOut = withShift
-        ? await _client
+    return withShift
+        ? _client
               .from('attendance')
               .select('id, shift, check_in, check_out')
               .eq('user_id', user.id)
@@ -77,7 +77,7 @@ class AttendanceSupabaseService {
               .order('check_in', ascending: false)
               .limit(1)
               .maybeSingle()
-        : await _client
+        : _client
               .from('attendance')
               .select('id, shift, check_in, check_out')
               .eq('user_id', user.id)
@@ -85,31 +85,6 @@ class AttendanceSupabaseService {
               .order('check_in', ascending: false)
               .limit(1)
               .maybeSingle();
-
-    if (nullCheckOut != null) {
-      return nullCheckOut;
-    }
-
-    final emptyStringCheckOut = withShift
-        ? await _client
-              .from('attendance')
-              .select('id, shift, check_in, check_out')
-              .eq('user_id', user.id)
-              .eq('shift', shift)
-              .eq('check_out', '')
-              .order('check_in', ascending: false)
-              .limit(1)
-              .maybeSingle()
-        : await _client
-              .from('attendance')
-              .select('id, shift, check_in, check_out')
-              .eq('user_id', user.id)
-              .eq('check_out', '')
-              .order('check_in', ascending: false)
-              .limit(1)
-              .maybeSingle();
-
-    return emptyStringCheckOut;
   }
 
   Future<void> clockOut({String? shift}) async {
@@ -117,7 +92,7 @@ class AttendanceSupabaseService {
 
     if (openAttendance == null) {
       throw Exception(
-        'ไม่พบรายการ Clock In ที่ยังไม่ Clock Out (ตรวจสอบ RLS policy และคอลัมน์ check_out ต้องเป็น null ตอน clock in)',
+        'ไม่พบรายการ Clock In ที่ยังไม่ Clock Out (ตรวจสอบ RLS policy และให้ check_out เป็น NULL ตอน clock in)',
       );
     }
 
