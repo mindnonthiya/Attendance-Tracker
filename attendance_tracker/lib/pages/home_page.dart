@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
@@ -45,6 +47,8 @@ class _HomePageState extends State<HomePage> {
   double? lastDistance;
   double? currentLatitude;
   double? currentLongitude;
+  DateTime now = DateTime.now();
+  Timer? _timeTicker;
 
   Future<void> takeSelfie() async {
     try {
@@ -200,177 +204,267 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     refreshCurrentLocation();
+    _timeTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timeTicker?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final hasCurrentLocation =
         currentLatitude != null && currentLongitude != null;
+    final userLabel =
+        supabaseService.currentUser?.email?.split('@').first ?? 'Employee';
+
+    final timeText = DateFormat('h:mm').format(now);
+    final period = DateFormat('a').format(now);
+    final dateText = DateFormat('EEE, dd MMM yyyy').format(now);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Attendance Tracker'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HistoryPage()),
-              );
-            },
-          ),
-          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
-        ],
-      ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.zero,
         children: [
           Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF4E78FF), Color(0xFF67B9FF)],
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF172B6A), Color(0xFFE61F34)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(34),
+                bottomRight: Radius.circular(34),
+              ),
             ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.only(left: 20, right: 20, top: 52, bottom: 20),
+            child: Row(
               children: [
-                const Text(
-                  'ลงเวลางานวันนี้',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        userLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Please check in',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  hasCurrentLocation
-                      ? 'ตำแหน่งพร้อมแล้ว • แตะ Clock In ได้เลย'
-                      : 'กำลังรอตำแหน่งปัจจุบัน...',
-                  style: const TextStyle(color: Colors.white70),
+                IconButton(
+                  onPressed: refreshCurrentLocation,
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                ),
+                IconButton(
+                  onPressed: logout,
+                  icon: const Icon(Icons.logout, color: Colors.white),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Card(
+          Transform.translate(
+            offset: const Offset(0, -20),
             child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'เลือกกะการทำงาน',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  SegmentedButton<AttendanceShift>(
-                    segments: AttendanceShift.values
-                        .map(
-                          (shift) => ButtonSegment<AttendanceShift>(
-                            value: shift,
-                            label: Text(shift.label),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: timeText,
+                              style: const TextStyle(
+                                color: Color(0xFF1A2A5A),
+                                fontSize: 56,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' $period',
+                              style: const TextStyle(
+                                color: Color(0xFFE61F34),
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        dateText,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Color(0xFF1A2A5A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Icon(
+                        Icons.location_on,
+                        color: Color(0xFF5BBE6D),
+                        size: 42,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'PT Tricor Orisoft Indonesia',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: Color(0xFF1A2A5A),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        hasCurrentLocation
+                            ? 'Current: ${currentLatitude!.toStringAsFixed(5)}, ${currentLongitude!.toStringAsFixed(5)}'
+                            : 'Jalan H. R. Rasuna Said, Setiabudi, South Jakarta',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Color(0xFF6A6F7D)),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: loading ? null : handleClockIn,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF1D3E8A),
+                              ),
+                              child: const Text('CHECK IN'),
+                            ),
                           ),
-                        )
-                        .toList(),
-                    selected: {selectedShift},
-                    onSelectionChanged: (selection) {
-                      setState(() => selectedShift = selection.first);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton.tonalIcon(
-                    onPressed: loading ? null : takeSelfie,
-                    icon: const Icon(Icons.camera_alt_outlined),
-                    label: Text(
-                      selfieBytes == null
-                          ? 'ถ่ายรูปยืนยันใบหน้า'
-                          : 'ถ่ายรูปใหม่',
-                    ),
-                  ),
-                  if (selfieBytes != null) ...[
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.memory(
-                        selfieBytes!,
-                        height: 160,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton.tonal(
+                              onPressed: loading ? null : handleClockOut,
+                              child: const Text('CHECK OUT'),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: locationLoading ? null : refreshCurrentLocation,
-                    icon: const Icon(Icons.my_location),
-                    label: Text(
-                      locationLoading
-                          ? 'กำลังอัปเดตตำแหน่ง...'
-                          : 'อัปเดตตำแหน่งปัจจุบัน',
-                    ),
+                      if (lastDistance != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'ระยะห่างจากจุดลงเวลา: ${lastDistance!.toStringAsFixed(0)} เมตร',
+                        ),
+                      ],
+                    ],
                   ),
-                  if (lastDistance != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: lastDistance! <= LocationService.maxDistanceMeters
-                            ? const Color(0xFFEAF8EF)
-                            : const Color(0xFFFFF1F1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        'ระยะห่าง: ${lastDistance!.toStringAsFixed(0)} เมตร',
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    hasCurrentLocation
-                        ? 'จุดฟ้า = ตำแหน่งปัจจุบัน • หมุด = จุดลงเวลา'
-                        : 'แสดงจุดลงเวลาออฟฟิศ (กดอัปเดตเพื่อแสดงจุดฟ้า)',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  _AttendanceMap(
-                    currentLatitude: currentLatitude,
-                    currentLongitude: currentLongitude,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
-                  onPressed: loading ? null : handleClockIn,
-                  child: const Text('Clock In'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: FilledButton.tonalIcon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HistoryPage()),
+                );
+              },
+              icon: const Icon(Icons.history),
+              label: const Text('เปิดประวัติการลงเวลา'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ยืนยันตัวตนและตำแหน่ง (ฟังก์ชันเดิม)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 10),
+                    SegmentedButton<AttendanceShift>(
+                      segments: AttendanceShift.values
+                          .map(
+                            (shift) => ButtonSegment<AttendanceShift>(
+                              value: shift,
+                              label: Text(shift.label),
+                            ),
+                          )
+                          .toList(),
+                      selected: {selectedShift},
+                      onSelectionChanged: (selection) {
+                        setState(() => selectedShift = selection.first);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: loading ? null : takeSelfie,
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: Text(
+                        selfieBytes == null ? 'ถ่ายรูปยืนยันใบหน้า' : 'ถ่ายรูปใหม่',
+                      ),
+                    ),
+                    if (selfieBytes != null) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.memory(
+                          selfieBytes!,
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: locationLoading ? null : refreshCurrentLocation,
+                      icon: const Icon(Icons.my_location),
+                      label: Text(
+                        locationLoading
+                            ? 'กำลังอัปเดตตำแหน่ง...'
+                            : 'อัปเดตตำแหน่งปัจจุบัน',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hasCurrentLocation
+                          ? 'จุดฟ้า = ตำแหน่งปัจจุบัน • หมุด = จุดลงเวลา'
+                          : 'แสดงจุดลงเวลาออฟฟิศ (กดอัปเดตเพื่อแสดงจุดฟ้า)',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    _AttendanceMap(
+                      currentLatitude: currentLatitude,
+                      currentLongitude: currentLongitude,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: loading ? null : handleClockOut,
-                  child: const Text('Clock Out'),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'เงื่อนไข: ต้องแสกนหน้าและอยู่ในรัศมีไม่เกิน 200 เมตรจากจุดทำงาน',
-          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
