@@ -132,9 +132,13 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationLoading: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
+        onOpenHistory: openHistory,
+        onLogout: logout,
+        onTabChanged: (index) => setState(() => selectedTab = index),
       ),
       _AttendanceActionTab(
         action: AttendanceAction.checkIn,
+        now: now,
         onLocationUpdated: (point) {
           setState(() {
             currentLatitude = point.latitude;
@@ -144,6 +148,7 @@ class _HomePageState extends State<HomePage> {
       ),
       _AttendanceActionTab(
         action: AttendanceAction.checkOut,
+        now: now,
         onLocationUpdated: (point) {
           setState(() {
             currentLatitude = point.latitude;
@@ -160,34 +165,74 @@ class _HomePageState extends State<HomePage> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(['Home', 'Check In', 'Check Out', 'Map'][selectedTab]),
-        actions: [
-          IconButton(
-            onPressed: openHistory,
-            icon: const Icon(Icons.history),
-            tooltip: 'History',
-          ),
-          IconButton(onPressed: logout, icon: const Icon(Icons.logout)),
-        ],
-      ),
-      body: IndexedStack(index: selectedTab, children: tabs),
+      body: SafeArea(child: IndexedStack(index: selectedTab, children: tabs)),
       bottomNavigationBar: NavigationBar(
+        height: 66,
         selectedIndex: selectedTab,
         onDestinationSelected: (index) {
           setState(() => selectedTab = index);
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(
-            icon: Icon(Icons.login_outlined),
-            label: 'Check In',
+          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.login), label: 'Check In'),
+          NavigationDestination(icon: Icon(Icons.logout), label: 'Check Out'),
+          NavigationDestination(icon: Icon(Icons.location_on), label: 'Map'),
+        ],
+      ),
+    );
+  }
+}
+
+class _GradientHeader extends StatelessWidget {
+  const _GradientHeader({
+    required this.title,
+    required this.subtitle,
+    this.leading,
+    this.trailing,
+    this.bottomRadius = 24,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final double bottomRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF173F79), Color(0xFFDB2A4E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(bottomRadius)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Row(
+        children: [
+          if (leading != null) ...[leading!, const SizedBox(width: 10)],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 30,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.logout_outlined),
-            label: 'Check Out',
-          ),
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
+          if (trailing != null) trailing!,
         ],
       ),
     );
@@ -203,6 +248,9 @@ class _HomeDashboardTab extends StatelessWidget {
     required this.currentAddress,
     required this.locationLoading,
     required this.onRefreshLocation,
+    required this.onOpenHistory,
+    required this.onLogout,
+    required this.onTabChanged,
   });
 
   final String userLabel;
@@ -212,128 +260,184 @@ class _HomeDashboardTab extends StatelessWidget {
   final String? currentAddress;
   final bool locationLoading;
   final VoidCallback onRefreshLocation;
+  final VoidCallback onOpenHistory;
+  final Future<void> Function() onLogout;
+  final ValueChanged<int> onTabChanged;
 
   @override
   Widget build(BuildContext context) {
-    final timeText = DateFormat('h:mm').format(now);
-    final period = DateFormat('a').format(now);
-    final dateText = DateFormat('EEE, dd MMM yyyy').format(now);
+    final timeText = DateFormat('HH:mm').format(now);
+    final dateText = DateFormat('EEEE, MMMM d, y').format(now);
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 12),
       children: [
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF182C74), Color(0xFFE0263D)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(32),
-              bottomRight: Radius.circular(32),
+        _GradientHeader(
+          title: 'Good Morning',
+          subtitle: userLabel,
+          bottomRadius: 26,
+          trailing: PopupMenuButton<String>(
+            color: Colors.white,
+            onSelected: (value) {
+              if (value == 'history') {
+                onOpenHistory();
+              } else {
+                onLogout();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'history', child: Text('History')),
+              PopupMenuItem(value: 'logout', child: Text('Logout')),
+            ],
+            child: const CircleAvatar(
+              backgroundColor: Color(0x3DFFFFFF),
+              child: Icon(Icons.person, color: Colors.white),
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 96),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                userLabel,
+                timeText,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+                  fontSize: 62,
+                  height: 1,
+                  color: Color(0xFF1A3666),
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const Text(
-                'Welcome back',
-                style: TextStyle(color: Colors.white70),
+              const SizedBox(height: 8),
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: Color(0xFF4D5B78),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF27C887),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  '• Checked In • Morning Shift',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
         ),
-        Transform.translate(
-          offset: const Offset(0, -78),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: timeText,
-                            style: const TextStyle(
-                              color: Color(0xFF1A2A5A),
-                              fontSize: 58,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' $period',
-                            style: const TextStyle(
-                              color: Color(0xFFE0263D),
-                              fontSize: 26,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: const Color(0xFFE9F0FF),
+                        child: Icon(Icons.location_on, color: Colors.blue.shade600),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      dateText,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF28365F),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Icon(
-                      Icons.location_on,
-                      color: Color.fromARGB(255, 214, 55, 55),
-                      size: 40,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      currentAddress ?? 'กำลังโหลดที่อยู่...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFF1A2A5A),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      currentLatitude != null && currentLongitude != null
-                          ? '${currentLatitude!.toStringAsFixed(6)}, ${currentLongitude!.toStringAsFixed(6)}'
-                          : 'กดอัปเดตตำแหน่งเพื่อแสดงพิกัดปัจจุบัน',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xFF6A6F7D)),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: locationLoading ? null : onRefreshLocation,
-                        icon: const Icon(Icons.my_location),
-                        label: Text(
-                          locationLoading
-                              ? 'กำลังอัปเดตตำแหน่ง...'
-                              : 'อัปเดตตำแหน่งปัจจุบัน',
+                      const SizedBox(width: 10),
+                      const Text(
+                        'CURRENT LOCATION',
+                        style: TextStyle(
+                          letterSpacing: .3,
+                          color: Color(0xFF9DA7BD),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    currentAddress ?? 'Loading current address...',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF32435F),
                     ),
-                  ],
-                ),
+                  ),
+                  const Divider(height: 22),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Latitude\n${currentLatitude?.toStringAsFixed(4) ?? '--'}° N',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Longitude\n${currentLongitude?.toStringAsFixed(4) ?? '--'}° W',
+                          textAlign: TextAlign.end,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: locationLoading ? null : onRefreshLocation,
+                      icon: const Icon(Icons.sync),
+                      label: Text(
+                        locationLoading
+                            ? 'Updating current location...'
+                            : 'Update Current Location',
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E5D96),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            'QUICK ACTIONS',
+            style: TextStyle(color: Color(0xFF9AA5BB), fontWeight: FontWeight.w700),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  title: 'Check In',
+                  subtitle: 'Start your shift',
+                  icon: Icons.login,
+                  iconBg: const Color(0xFFD6F8E9),
+                  iconColor: const Color(0xFF2AB676),
+                  onTap: () => onTabChanged(1),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickActionCard(
+                  title: 'Check Out',
+                  subtitle: 'End your shift',
+                  icon: Icons.logout,
+                  iconBg: const Color(0xFFFFE1E3),
+                  iconColor: const Color(0xFFF35C63),
+                  onTap: () => onTabChanged(2),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -341,13 +445,64 @@ class _HomeDashboardTab extends StatelessWidget {
   }
 }
 
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconBg,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE7EBF3)),
+        ),
+        child: Column(
+          children: [
+            CircleAvatar(
+              backgroundColor: iconBg,
+              child: Icon(icon, color: iconColor),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
+            ),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Color(0xFF9AA5BB))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AttendanceActionTab extends StatefulWidget {
   const _AttendanceActionTab({
     required this.action,
+    required this.now,
     required this.onLocationUpdated,
   });
 
   final AttendanceAction action;
+  final DateTime now;
   final ValueChanged<LatLng> onLocationUpdated;
 
   @override
@@ -423,17 +578,25 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
 
       final selfiePath = await supabaseService.uploadSelfie(
         selfieBytes: selfieBytes!,
+        shiftLabel: selectedShift.dbValue,
       );
 
       if (widget.action == AttendanceAction.checkIn) {
-        await supabaseService.clockIn(
-          shift: selectedShift.dbValue,
+        await supabaseService.checkIn(
           latitude: position.latitude,
           longitude: position.longitude,
-          selfieUrl: selfiePath,
+          distanceMeters: distance,
+          selfiePath: selfiePath,
+          shift: selectedShift.dbValue,
         );
       } else {
-        await supabaseService.clockOut(shift: selectedShift.dbValue);
+        await supabaseService.checkOut(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          distanceMeters: distance,
+          selfiePath: selfiePath,
+          shift: selectedShift.dbValue,
+        );
       }
 
       if (!mounted) {
@@ -466,118 +629,198 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   @override
   Widget build(BuildContext context) {
     final isCheckIn = widget.action == AttendanceAction.checkIn;
-    final headerColor = isCheckIn
-        ? const Color.fromARGB(255, 19, 133, 51)
-        : const Color.fromARGB(255, 155, 31, 41);
+    final title = isCheckIn ? 'Check In' : 'Check Out';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 12),
       children: [
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              colors: [headerColor, headerColor.withOpacity(0.72)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        _GradientHeader(
+          title: title,
+          subtitle: isCheckIn ? 'Verify your attendance' : 'End your work shift',
+          leading: IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0x33FFFFFF),
             ),
           ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(
-                isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-                color: Colors.white,
+        ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Shift',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<AttendanceShift>(
+                    segments: AttendanceShift.values
+                        .map(
+                          (shift) => ButtonSegment<AttendanceShift>(
+                            value: shift,
+                            label: Text(shift.label),
+                          ),
+                        )
+                        .toList(),
+                    selected: {selectedShift},
+                    onSelectionChanged: (selection) {
+                      setState(() => selectedShift = selection.first);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Face Verification',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 220,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22252C),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 170,
+                          height: 170,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF18C49A),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.account_circle,
+                          size: 90,
+                          color: Colors.white.withOpacity(.35),
+                        ),
+                        Positioned(
+                          bottom: 14,
+                          left: 14,
+                          right: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(.6),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Position your face within the circle',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: loading ? null : takeSelfie,
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: Text(selfieBytes == null ? 'Scan Face' : 'Scan Again'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E5D96),
+                      ),
+                    ),
+                  ),
+                  if (selfieBytes != null) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        selfieBytes!,
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                isCheckIn ? 'Check In' : 'Check Out',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '1) เลือกกะการทำงาน',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                SegmentedButton<AttendanceShift>(
-                  segments: AttendanceShift.values
-                      .map(
-                        (shift) => ButtonSegment<AttendanceShift>(
-                          value: shift,
-                          label: Text(shift.label),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Distance from Office',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 28),
                         ),
-                      )
-                      .toList(),
-                  selected: {selectedShift},
-                  onSelectionChanged: (selection) {
-                    setState(() => selectedShift = selection.first);
-                  },
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  '2) สแกนหน้า (ถ่ายรูป)',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 10),
-                FilledButton.tonalIcon(
-                  onPressed: loading ? null : takeSelfie,
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: Text(selfieBytes == null ? 'สแกนหน้า' : 'สแกนใหม่'),
-                ),
-                if (selfieBytes != null) ...[
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Image.memory(
-                      selfieBytes!,
-                      height: 168,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+                      ),
+                      if (lastDistance != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: lastDistance! <= 200
+                                ? const Color(0xFFD8F7E8)
+                                : const Color(0xFFFFE0E3),
+                          ),
+                          child: Text(
+                            lastDistance! <= 200 ? 'Within Range' : 'Out of Range',
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${(lastDistance ?? 0).toStringAsFixed(0)}m',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 40,
+                      color: Color(0xFF1E3763),
                     ),
+                  ),
+                  const Text(
+                    'from office entrance',
+                    style: TextStyle(color: Color(0xFF98A4BB)),
                   ),
                 ],
-                if (lastDistance != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF3FF),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      'ระยะห่างล่าสุด: ${lastDistance!.toStringAsFixed(0)} เมตร',
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: loading ? null : submitAction,
-                    style: FilledButton.styleFrom(backgroundColor: headerColor),
-                    child: Text(
-                      isCheckIn ? 'ยืนยัน Check In' : 'ยืนยัน Check Out',
-                    ),
-                  ),
-                ),
-              ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: loading || selfieBytes == null ? null : submitAction,
+              icon: const Icon(Icons.check),
+              label: Text(isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'),
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                    isCheckIn ? const Color(0xFF7DD8BD) : const Color(0xFFEF9AA5),
+                foregroundColor: Colors.white,
+              ),
             ),
           ),
         ),
@@ -688,132 +931,148 @@ class _MapTabState extends State<_MapTab> {
     ];
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 12),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: searchController,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => searchLocation(),
-                decoration: const InputDecoration(
-                  hintText: 'ค้นหาสถานที่...',
-                  prefixIcon: Icon(Icons.search),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: searching ? null : searchLocation,
-              child: searching
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('ค้นหา'),
-            ),
-          ],
+        const _GradientHeader(
+          title: 'Location Map',
+          subtitle: 'View office & your location',
         ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: widget.locationLoading ? null : widget.onRefreshLocation,
-          icon: const Icon(Icons.my_location),
-          label: Text(
-            widget.locationLoading
-                ? 'กำลังอัปเดตตำแหน่ง...'
-                : 'อัปเดตตำแหน่งปัจจุบัน',
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: searchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => searchLocation(),
+            decoration: const InputDecoration(
+              hintText: 'Search locations...',
+              prefixIcon: Icon(Icons.search),
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            height: 360,
-            child: FlutterMap(
-              mapController: mapController,
-              options: MapOptions(
-                initialCenter: current ?? office,
-                initialZoom: 16,
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: LatLngBounds.fromPoints(points),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 320,
+              child: FlutterMap(
+                mapController: mapController,
+                options: MapOptions(
+                  initialCenter: current ?? office,
+                  initialZoom: 16,
+                  cameraConstraint: CameraConstraint.contain(
+                    bounds: LatLngBounds.fromPoints(points),
+                  ),
                 ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.attendance_tracker',
-                ),
-                CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: office,
-                      color: const Color(0x1A4E78FF),
-                      borderColor: const Color(0xFF4E78FF),
-                      borderStrokeWidth: 2,
-                      radius: 80,
-                      useRadiusInMeter: true,
-                    ),
-                  ],
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: office,
-                      width: 44,
-                      height: 44,
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Color(0xFF1F3C88),
-                        size: 36,
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.attendance_tracker',
+                  ),
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: office,
+                        color: const Color(0x1A4E78FF),
+                        borderColor: const Color(0xFF4E78FF),
+                        borderStrokeWidth: 2,
+                        radius: 80,
+                        useRadiusInMeter: true,
                       ),
-                    ),
-                    if (current != null)
+                    ],
+                  ),
+                  MarkerLayer(
+                    markers: [
                       Marker(
-                        point: current,
-                        width: 20,
-                        height: 20,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2596FF),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x662596FF),
-                                blurRadius: 10,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    if (searchPoint != null)
-                      Marker(
-                        point: searchPoint!,
-                        width: 42,
-                        height: 42,
+                        point: office,
+                        width: 44,
+                        height: 44,
                         child: const Icon(
-                          Icons.place,
-                          color: Color(0xFFE67E22),
+                          Icons.location_on,
+                          color: Colors.red,
                           size: 36,
                         ),
                       ),
-                  ],
-                ),
-              ],
+                      if (current != null)
+                        Marker(
+                          point: current,
+                          width: 20,
+                          height: 20,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2596FF),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x662596FF),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (searchPoint != null)
+                        Marker(
+                          point: searchPoint!,
+                          width: 42,
+                          height: 42,
+                          child: const Icon(
+                            Icons.place,
+                            color: Color(0xFFE67E22),
+                            size: 36,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        const Text(
-          'หมุดน้ำเงิน: สำนักงาน • จุดฟ้า: ตำแหน่งปัจจุบัน • หมุดส้ม: ผลการค้นหา',
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: FilledButton.icon(
+            onPressed: widget.locationLoading ? null : widget.onRefreshLocation,
+            icon: const Icon(Icons.sync),
+            label: Text(
+              widget.locationLoading ? 'Refreshing...' : 'Refresh Location',
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2E5D96),
+            ),
+          ),
         ),
-        if (searchLabel != null) ...[
-          const SizedBox(height: 6),
-          Text('ผลการค้นหา: $searchLabel'),
-        ],
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Your Coordinates\n${current?.latitude.toStringAsFixed(4) ?? '--'},\n${current?.longitude.toStringAsFixed(4) ?? '--'}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Office Coordinates\n${office.latitude.toStringAsFixed(4)},\n${office.longitude.toStringAsFixed(4)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (searchLabel != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Text('Search result: $searchLabel'),
+          ),
       ],
     );
   }
