@@ -1,22 +1,26 @@
 # Attendance Tracker
 
-แอปลงเวลาเข้างาน (มือถือ/เว็บ) พร้อมเงื่อนไขตามโจทย์:
-- ต้องถ่ายรูปยืนยันใบหน้าก่อนกด Clock In
-- ตรวจตำแหน่งปัจจุบัน ต้องอยู่ในรัศมีไม่เกิน 200 เมตรจากจุดทำงาน
-- รองรับการลงเวลาเป็นกะ Morning / Afternoon / Evening
-- เก็บประวัติการลงเวลาเพื่อย้อนตรวจสอบได้
+Attendance Tracker คือแอปลงเวลาเข้างาน (Mobile + Web) ที่เน้นความถูกต้องของตำแหน่งและหลักฐานการลงเวลา พร้อมหน้า History สำหรับย้อนดูข้อมูลแต่ละวันอย่างอ่านง่าย
+
+## Features
+- ถ่ายรูปยืนยันใบหน้าก่อน Clock In
+- ตรวจสอบตำแหน่งปัจจุบันให้อยู่ในรัศมีที่กำหนดจากออฟฟิศ
+- รองรับกะทำงาน Morning / Afternoon / Evening
+- บันทึกประวัติการลงเวลา (Check In/Check Out) พร้อมพิกัด
+- หน้า History แสดงข้อมูลแบบการ์ด พร้อมกรองตามกะ
 
 ## Tech Stack
-- Flutter (Mobile + Web)
-- Supabase (Auth, Database, Storage)
-- Geolocator (GPS)
-- Image Picker (ถ่ายรูป)
+- Flutter
+- Supabase (Auth / Database / Storage)
+- Geolocator
+- Image Picker
+- Flutter Map (OpenStreetMap)
 
-## Supabase ที่ต้องมี
+## Supabase Setup
 
-### 1) ตาราง `attendance`
-แนะนำฟิลด์อย่างน้อย:
-- `id` (uuid / bigint, primary key)
+### 1) Table: `attendance`
+ฟิลด์ที่ควรมีอย่างน้อย
+- `id` (uuid หรือ bigint, primary key)
 - `user_id` (uuid)
 - `date` (date หรือ text)
 - `shift` (text)
@@ -27,29 +31,30 @@
 - `selfie_url` (text, nullable)
 
 ### 2) Storage Bucket
-สร้าง bucket ชื่อ `attendance-selfie` สำหรับเก็บรูปยืนยันใบหน้า
+- สร้าง bucket ชื่อ `attendance-selfie` สำหรับเก็บรูปยืนยันใบหน้า
 
-## วิธีรันในเครื่อง
+## Run Locally
 ```bash
 flutter pub get
 flutter run
 ```
 
-## Build และ Deploy (Web)
-
-### Build
+## Build Web
 ```bash
 flutter build web
 ```
 ผลลัพธ์จะอยู่ที่ `build/web`
 
-### Deploy ตัวอย่าง
-สามารถนำโฟลเดอร์ `build/web` ไป deploy ได้ทันที เช่น:
+## Deploy (Web)
+สามารถนำโฟลเดอร์ `build/web` ไป deploy ได้ทันที เช่น
 - Vercel
 - Netlify
 - Firebase Hosting
 - Cloudflare Pages
 
-## หมายเหตุ
-- พิกัดจุดทำงานตั้งค่าใน `lib/services/location_service.dart`
-- ตอนนี้ตั้งค่าเริ่มต้นไว้ที่บริเวณกรุงเทพฯ (`13.7563, 100.5018`) ปรับได้ตามสถานที่จริง
+## UI Notes (History Page)
+- ปรับลำดับขนาดฟอนต์ใน History Card ให้สมดุลขึ้น (หัวข้อ/ค่าเวลา/ข้อมูลรอง)
+- ทำ style กลางสำหรับข้อความสำคัญ เพื่อลดความใหญ่เกินและคงความสม่ำเสมอ
+
+## Configuration
+- ตำแหน่งออฟฟิศและรัศมีตรวจสอบ อยู่ที่ `lib/services/location_service.dart`

@@ -37,8 +37,20 @@ class _HistoryPageState extends State<HistoryPage> {
 
   static const _valueStyle = TextStyle(
     fontWeight: FontWeight.w700,
-    fontSize: 24,
-    height: 1.1,
+    fontSize: 22,
+    height: 1.15,
+  );
+
+  static const _metaStyle = TextStyle(
+    color: Color(0xFF6F7F79),
+    fontSize: 13,
+    height: 1.2,
+  );
+
+  static const _statusTextStyle = TextStyle(
+    color: Color(0xFF4D8A7E),
+    fontWeight: FontWeight.w700,
+    fontSize: 12,
   );
 
   Future<void> loadData() async {
@@ -161,8 +173,8 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 10,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE2F2EB),
@@ -178,10 +190,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       SizedBox(width: 6),
                       Text(
                         'Completed',
-                        style: TextStyle(
-                          color: Color(0xFF4D8A7E),
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: _statusTextStyle,
                       ),
                     ],
                   ),
@@ -191,7 +200,7 @@ class _HistoryPageState extends State<HistoryPage> {
             const SizedBox(height: 4),
             Text(
               'Shift: ${(item['shift'] ?? 'general').toString().replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase())}',
-              style: const TextStyle(color: Color(0xFF6F7F79)),
+              style: _metaStyle,
             ),
             const SizedBox(height: 10),
             Row(
@@ -257,7 +266,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 SizedBox(width: 6),
                 Text(
                   'Office - Main Building',
-                  style: TextStyle(color: Color(0xFF71807B)),
+                  style: _metaStyle,
                 ),
               ],
             ),
@@ -326,7 +335,7 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           const Text(
             'Filter By',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 10),
           _buildFilterChips(),
