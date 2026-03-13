@@ -68,17 +68,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(
-                      child: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Color(0xFF4D8A7E),
-                        child: Icon(
-                          Icons.access_time,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                    ),
+                    
                     const SizedBox(height: 14),
                     const Text(
                       'Attendance Tracker',
@@ -105,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        hintText: 'you@company.com',
+                        hintText: 'test@email.com',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -117,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       controller: passwordController,
                       obscureText: true,
-                      decoration: const InputDecoration(hintText: '••••••••'),
+                      decoration: const InputDecoration(hintText: '123456'),
                     ),
                     const SizedBox(height: 16),
                     FilledButton(

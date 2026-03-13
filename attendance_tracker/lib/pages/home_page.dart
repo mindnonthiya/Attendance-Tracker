@@ -63,6 +63,7 @@ class _HomePageState extends State<HomePage> {
   double? currentLongitude;
   String? currentAddress;
   List<Map<String, dynamic>> recentActivities = [];
+  int historyRefreshToken = 0;
 
   Future<void> loadRecentActivities() async {
     setState(() => recentLoading = true);
@@ -83,6 +84,12 @@ class _HomePageState extends State<HomePage> {
         setState(() => recentLoading = false);
       }
     }
+  }
+
+  Future<void> handleAttendanceActionCompleted() async {
+    await loadRecentActivities();
+    if (!mounted) return;
+    setState(() => historyRefreshToken++);
   }
 
   Future<void> refreshCurrentLocation() async {
@@ -142,7 +149,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final userLabel =
-        supabaseService.currentUser?.email ?? 'mindnonthiya@gmail.com';
+        supabaseService.currentUser?.email ?? 'User'; // Fallback to 'User' if email is null
 
     final tabs = [
       _HomeTab(
@@ -165,7 +172,7 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
-        onActionCompleted: loadRecentActivities,
+        onActionCompleted: handleAttendanceActionCompleted,
         onLogout: logout,
       ),
       _AttendanceActionTab(
@@ -175,10 +182,14 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
-        onActionCompleted: loadRecentActivities,
+        onActionCompleted: handleAttendanceActionCompleted,
         onLogout: logout,
       ),
-      _HistoryTabScreen(userLabel: userLabel, onLogout: logout),
+      _HistoryTabScreen(
+        userLabel: userLabel,
+        onLogout: logout,
+        refreshToken: historyRefreshToken,
+      ),
       _MapTab(
         userLabel: userLabel,
         onLogout: logout,
@@ -239,10 +250,6 @@ class _HeaderBar extends StatelessWidget {
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                 ),
-              ),
-              const Text(
-                'Acme Corporation',
-                style: TextStyle(color: Color(0xFF96A29D), fontSize: 13),
               ),
             ],
           ),
@@ -731,7 +738,10 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
           selfieUrl: selfiePath,
         );
       } else {
-        await supabaseService.clockOut(shift: selectedShift.dbValue);
+        await supabaseService.clockOut(
+          shift: selectedShift.dbValue,
+          selfieUrl: selfiePath,
+        );
       }
 
       await showSuccessNotification(
@@ -971,10 +981,15 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
 }
 
 class _HistoryTabScreen extends StatelessWidget {
-  const _HistoryTabScreen({required this.userLabel, required this.onLogout});
+  const _HistoryTabScreen({
+    required this.userLabel,
+    required this.onLogout,
+    required this.refreshToken,
+  });
 
   final String userLabel;
   final Future<void> Function() onLogout;
+  final int refreshToken;
 
   @override
   Widget build(BuildContext context) {
@@ -984,7 +999,9 @@ class _HistoryTabScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: _HeaderBar(userLabel: userLabel, onLogout: onLogout),
         ),
-        const Expanded(child: HistoryPage(embedded: true)),
+        Expanded(
+          child: HistoryPage(key: ValueKey(refreshToken), embedded: true),
+        ),
       ],
     );
   }

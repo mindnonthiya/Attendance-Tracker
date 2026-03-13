@@ -107,6 +107,7 @@ class AttendanceSupabaseService {
       'latitude': latitude,
       'longitude': longitude,
       'selfie_url': selfieUrl,
+      'selfie_check_in_url': selfieUrl,
       'date': DateTime.now().toIso8601String().split('T').first,
     });
   }
@@ -139,7 +140,7 @@ class AttendanceSupabaseService {
               .maybeSingle();
   }
 
-  Future<void> clockOut({String? shift}) async {
+  Future<void> clockOut({String? shift, String? selfieUrl}) async {
     final openAttendance = await _findOpenAttendance(shift: shift);
 
     if (openAttendance == null) {
@@ -150,7 +151,10 @@ class AttendanceSupabaseService {
 
     await _client
         .from('attendance')
-        .update({'check_out': DateTime.now().toIso8601String()})
+        .update({
+          'check_out': DateTime.now().toIso8601String(),
+          'selfie_check_out_url': selfieUrl,
+        })
         .eq('id', openAttendance['id']);
   }
 
@@ -168,9 +172,19 @@ class AttendanceSupabaseService {
 
     final records = List<Map<String, dynamic>>.from(response);
     for (final record in records) {
-      record['selfie_display_url'] = await _buildDisplaySelfieUrl(
-        record['selfie_url']?.toString(),
+      final checkInRaw =
+          record['selfie_check_in_url']?.toString() ??
+          record['selfie_url']?.toString();
+      final checkOutRaw = record['selfie_check_out_url']?.toString();
+
+      record['selfie_check_in_display_url'] = await _buildDisplaySelfieUrl(
+        checkInRaw,
       );
+      record['selfie_check_out_display_url'] = await _buildDisplaySelfieUrl(
+        checkOutRaw,
+      );
+
+      record['selfie_display_url'] = record['selfie_check_in_display_url'];
     }
 
     return records;
