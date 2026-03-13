@@ -142,10 +142,17 @@ class _HistoryPageState extends State<HistoryPage> {
               1000
         : null;
 
-    final selfieUrl =
+    final checkInSelfieUrl =
+        item['selfie_check_in_display_url']?.toString() ??
         item['selfie_display_url']?.toString() ??
         item['selfie_url']?.toString();
-    final validImageUrl = selfieUrl != null && selfieUrl.startsWith('http');
+    final checkOutSelfieUrl =
+        item['selfie_check_out_display_url']?.toString() ??
+        item['selfie_check_out_url']?.toString();
+    final validCheckInImageUrl =
+        checkInSelfieUrl != null && checkInSelfieUrl.startsWith('http');
+    final validCheckOutImageUrl =
+        checkOutSelfieUrl != null && checkOutSelfieUrl.startsWith('http');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -273,33 +280,21 @@ class _HistoryPageState extends State<HistoryPage> {
                     ],
                   ),
                 ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 78,
-                    height: 78,
-                    child: validImageUrl
-                        ? Image.network(
-                            selfieUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              color: const Color(0xFFE6EEF8),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.camera_alt_outlined,
-                                color: Color(0xFFA1B2C5),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            color: const Color(0xFFE6EEF8),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.camera_alt_outlined,
-                              color: Color(0xFFA1B2C5),
-                            ),
-                          ),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _SelfiePreview(
+                      label: 'IN',
+                      imageUrl: checkInSelfieUrl,
+                      isValidImageUrl: validCheckInImageUrl,
+                    ),
+                    const SizedBox(height: 8),
+                    _SelfiePreview(
+                      label: 'OUT',
+                      imageUrl: checkOutSelfieUrl,
+                      isValidImageUrl: validCheckOutImageUrl,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -386,40 +381,28 @@ class HistoryDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final latitude = (item['latitude'] as num?)?.toDouble();
     final longitude = (item['longitude'] as num?)?.toDouble();
-    final selfieUrl =
+    final checkInSelfieUrl =
+        item['selfie_check_in_display_url']?.toString() ??
         item['selfie_display_url']?.toString() ??
         item['selfie_url']?.toString();
+    final checkOutSelfieUrl =
+        item['selfie_check_out_display_url']?.toString() ??
+        item['selfie_check_out_url']?.toString();
 
     return Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดประวัติ')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (selfieUrl != null && selfieUrl.startsWith('http'))
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                selfieUrl,
-                height: 240,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  height: 240,
-                  color: Colors.grey.shade200,
-                  alignment: Alignment.center,
-                  child: const Text('โหลดรูปไม่สำเร็จ'),
-                ),
-              ),
-            )
-          else
-            Container(
-              height: 240,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
-              child: const Text('ไม่มีรูปถ่าย'),
-            ),
+          _DetailSelfieSection(
+            title: 'รูปตอน Check In',
+            imageUrl: checkInSelfieUrl,
+          ),
+          const SizedBox(height: 12),
+          _DetailSelfieSection(
+            title: 'รูปตอน Check Out',
+            imageUrl: checkOutSelfieUrl,
+          ),
           const SizedBox(height: 16),
           Text('วันที่: ${item['date'] ?? '-'}'),
           Text('กะ: ${item['shift'] ?? 'general'}'),
@@ -440,6 +423,108 @@ class HistoryDetailPage extends StatelessWidget {
             const Text('ไม่มีพิกัดในรายการนี้ จึงไม่สามารถแสดงแผนที่ได้'),
         ],
       ),
+    );
+  }
+}
+
+
+class _SelfiePreview extends StatelessWidget {
+  const _SelfiePreview({
+    required this.label,
+    required this.imageUrl,
+    required this.isValidImageUrl,
+  });
+
+  final String label;
+  final String? imageUrl;
+  final bool isValidImageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF8B9994))),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 78,
+            height: 78,
+            child: isValidImageUrl
+                ? Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: const Color(0xFFE6EEF8),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.camera_alt_outlined,
+                        color: Color(0xFFA1B2C5),
+                      ),
+                    ),
+                  )
+                : Container(
+                    color: const Color(0xFFE6EEF8),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.camera_alt_outlined,
+                      color: Color(0xFFA1B2C5),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailSelfieSection extends StatelessWidget {
+  const _DetailSelfieSection({required this.title, required this.imageUrl});
+
+  final String title;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final validImage = imageUrl != null && imageUrl!.startsWith('http');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        if (validImage)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.network(
+              imageUrl!,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                height: 180,
+                color: Colors.grey.shade200,
+                alignment: Alignment.center,
+                child: const Text('โหลดรูปไม่สำเร็จ'),
+              ),
+            ),
+          )
+        else
+          Container(
+            height: 180,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: const Text('ไม่มีรูปถ่าย'),
+          ),
+      ],
     );
   }
 }

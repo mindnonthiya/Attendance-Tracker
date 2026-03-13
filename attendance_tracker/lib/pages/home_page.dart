@@ -742,7 +742,10 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
           selfieUrl: selfiePath,
         );
       } else {
-        await supabaseService.clockOut(shift: selectedShift.dbValue);
+        await supabaseService.clockOut(
+          shift: selectedShift.dbValue,
+          selfieUrl: selfiePath,
+        );
       }
 
       await showSuccessNotification(

@@ -28,7 +28,17 @@ Attendance Tracker คือแอปลงเวลาเข้างาน (Mo
 - `check_out` (timestamp, nullable)
 - `latitude` (double precision)
 - `longitude` (double precision)
-- `selfie_url` (text, nullable)
+- `selfie_url` (text, nullable, เก็บรูป Check In เดิมเพื่อ backward compatibility)
+- `selfie_check_in_url` (text, nullable)
+- `selfie_check_out_url` (text, nullable)
+
+
+> ถ้าใช้ฐานข้อมูลเดิม ให้เพิ่มคอลัมน์ด้วย SQL นี้ก่อน:
+```sql
+alter table attendance
+  add column if not exists selfie_check_in_url text,
+  add column if not exists selfie_check_out_url text;
+```
 
 ### 2) Storage Bucket
 - สร้าง bucket ชื่อ `attendance-selfie` สำหรับเก็บรูปยืนยันใบหน้า
