@@ -11,7 +11,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
-import 'history_page.dart';
 import 'login_page.dart';
 
 enum AttendanceShift { morning, afternoon, evening }
@@ -99,13 +98,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void openHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const HistoryPage()),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -144,6 +136,8 @@ class _HomePageState extends State<HomePage> {
         now: now,
         userLabel: userLabel,
         currentAddress: currentAddress,
+        locationRefreshing: locationLoading,
+        onRefreshLocation: refreshCurrentLocation,
         onLogout: logout,
       ),
       _AttendanceActionTab(
@@ -151,9 +145,11 @@ class _HomePageState extends State<HomePage> {
         now: now,
         userLabel: userLabel,
         currentAddress: currentAddress,
+        locationRefreshing: locationLoading,
+        onRefreshLocation: refreshCurrentLocation,
         onLogout: logout,
       ),
-      _HistoryTab(userLabel: userLabel, onOpenHistory: openHistory, onLogout: logout),
+      _HistoryTab(userLabel: userLabel, onLogout: logout),
       _MapTab(
         userLabel: userLabel,
         onLogout: logout,
@@ -490,6 +486,8 @@ class _AttendanceActionTab extends StatefulWidget {
     required this.now,
     required this.userLabel,
     required this.currentAddress,
+    required this.locationRefreshing,
+    required this.onRefreshLocation,
     required this.onLogout,
   });
 
@@ -497,6 +495,8 @@ class _AttendanceActionTab extends StatefulWidget {
   final DateTime now;
   final String userLabel;
   final String? currentAddress;
+  final bool locationRefreshing;
+  final Future<void> Function() onRefreshLocation;
   final Future<void> Function() onLogout;
 
   @override
@@ -511,6 +511,31 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   Uint8List? selfieBytes;
   bool loading = false;
   double? lastDistance;
+
+  Future<void> showSuccessNotification(String message) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.check_circle, color: Color(0xFF2E9F78)),
+            SizedBox(width: 8),
+            Text('Success'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> takeSelfie() async {
     try {
@@ -577,15 +602,10 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         await supabaseService.clockOut(shift: selectedShift.dbValue);
       }
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.action == AttendanceAction.checkIn
-                ? 'Check In สำเร็จ (${selectedShift.shortLabel})'
-                : 'Check Out สำเร็จ (${selectedShift.shortLabel})',
-          ),
-        ),
+      await showSuccessNotification(
+        widget.action == AttendanceAction.checkIn
+            ? 'Check In สำเร็จ (${selectedShift.shortLabel})'
+            : 'Check Out สำเร็จ (${selectedShift.shortLabel})',
       );
     } catch (e) {
       if (!mounted) return;
@@ -727,6 +747,16 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
                   widget.currentAddress!,
                   style: const TextStyle(color: Color(0xFF8E9A95), fontSize: 12),
                 ),
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: widget.locationRefreshing ? null : widget.onRefreshLocation,
+                icon: const Icon(Icons.my_location),
+                label: Text(
+                  widget.locationRefreshing
+                      ? 'Refreshing current address...'
+                      : 'Refresh Current Address',
+                ),
+              ),
             ],
           ),
         ),
@@ -771,23 +801,55 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   }
 }
 
-class _HistoryTab extends StatelessWidget {
-  const _HistoryTab({
-    required this.userLabel,
-    required this.onOpenHistory,
-    required this.onLogout,
-  });
+class _HistoryTab extends StatefulWidget {
+  const _HistoryTab({required this.userLabel, required this.onLogout});
 
   final String userLabel;
-  final VoidCallback onOpenHistory;
   final Future<void> Function() onLogout;
+
+  @override
+  State<_HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends State<_HistoryTab> {
+  final supabaseService = AttendanceSupabaseService();
+
+  bool loading = true;
+  String? errorMessage;
+  List<Map<String, dynamic>> records = [];
+
+  Future<void> loadHistory() async {
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final response = await supabaseService.history();
+      if (!mounted) return;
+      setState(() => records = response);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => errorMessage = e.toString());
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadHistory();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _HeaderBar(userLabel: userLabel, onLogout: onLogout),
+        _HeaderBar(userLabel: widget.userLabel, onLogout: widget.onLogout),
         const SizedBox(height: 10),
         _SoftPanel(
           child: Column(
@@ -797,15 +859,59 @@ class _HistoryTab extends StatelessWidget {
                 'Attendance History',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
               ),
-              const SizedBox(height: 24),
-              const Center(
-                child: Text('No records yet', style: TextStyle(color: Color(0xFFA0ABA7))),
-              ),
-              const SizedBox(height: 18),
-              Center(
-                child: OutlinedButton(
-                  onPressed: onOpenHistory,
-                  child: const Text('Open Full History'),
+              const SizedBox(height: 14),
+              if (loading)
+                const Center(child: CircularProgressIndicator())
+              else if (errorMessage != null)
+                Text(
+                  errorMessage!,
+                  style: const TextStyle(color: Color(0xFFB34C4C)),
+                )
+              else if (records.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text(
+                      'No records yet',
+                      style: TextStyle(color: Color(0xFFA0ABA7)),
+                    ),
+                  ),
+                )
+              else
+                ...records.take(20).map((item) {
+                  final checkIn = item['check_in']?.toString() ?? '-';
+                  final checkOut = item['check_out']?.toString() ?? '-';
+                  final date = item['date']?.toString() ?? '-';
+                  final shift = item['shift']?.toString() ?? 'general';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F4F3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$date • $shift',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('In: $checkIn'),
+                        Text('Out: $checkOut'),
+                      ],
+                    ),
+                  );
+                }),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: loadHistory,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh History'),
                 ),
               ),
             ],
