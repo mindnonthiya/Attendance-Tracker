@@ -22,6 +22,7 @@ class _HistoryPageState extends State<HistoryPage> {
   List<Map<String, dynamic>> data = [];
   bool loading = true;
   String? errorMessage;
+  String selectedFilter = 'all';
 
   Future<void> loadData() async {
     setState(() {
@@ -45,11 +46,21 @@ class _HistoryPageState extends State<HistoryPage> {
 
   String formatDate(dynamic dateString) {
     if (dateString == null) return '-';
-
     final dt = DateTime.tryParse(dateString.toString());
     if (dt == null) return dateString.toString();
-
     return dateFormat.format(dt.toLocal());
+  }
+
+  String formatTime(dynamic dateString) {
+    if (dateString == null) return '--:--';
+    final dt = DateTime.tryParse(dateString.toString());
+    if (dt == null) return '--:--';
+    return DateFormat('hh:mm a').format(dt.toLocal());
+  }
+
+  List<Map<String, dynamic>> get filteredData {
+    if (selectedFilter == 'all') return data;
+    return data.where((item) => item['shift']?.toString() == selectedFilter).toList();
   }
 
   void openDetail(Map<String, dynamic> item) {
@@ -65,137 +76,247 @@ class _HistoryPageState extends State<HistoryPage> {
     loadData();
   }
 
-  Widget _buildBody() {
-    if (loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildFilterChips() {
+    final filters = const [
+      ('all', 'All'),
+      ('morning', 'Morning'),
+      ('afternoon', 'Afternoon'),
+      ('evening', 'Evening'),
+    ];
 
-    if (errorMessage != null) {
-      return RefreshIndicator(
-        onRefresh: loadData,
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const SizedBox(height: 80),
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 12),
-            const Text(
-              'โหลดประวัติไม่สำเร็จ',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(errorMessage!, textAlign: TextAlign.center),
-          ],
-        ),
-      );
-    }
-
-    if (data.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: loadData,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const SizedBox(height: 120),
-            const Icon(Icons.history_toggle_off, size: 48),
-            const SizedBox(height: 12),
-            const Center(child: Text('ยังไม่มีข้อมูลประวัติลงเวลา')),
-            const SizedBox(height: 8),
-            Text(
-              'Current user: ${supabaseService.currentUser?.id ?? '-'}',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: loadData,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: data.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final item = data[index];
-          final selfieUrl =
-              item['selfie_display_url']?.toString() ?? item['selfie_url']?.toString();
-
-          return Card(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => openDetail(item),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: selfieUrl != null && selfieUrl.isNotEmpty
-                          ? Image.network(
-                              selfieUrl,
-                              width: 82,
-                              height: 82,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                width: 82,
-                                height: 82,
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                            )
-                          : Container(
-                              width: 82,
-                              height: 82,
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.image_not_supported),
-                            ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${item['date']} • ${item['shift'] ?? 'general'}',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text('In: ${formatDate(item['check_in'])}'),
-                          Text('Out: ${formatDate(item['check_out'])}'),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5FF),
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                            child: const Text('แตะเพื่อดูรายละเอียด'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: filters
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(item.$2),
+                  selected: selectedFilter == item.$1,
+                  onSelected: (_) => setState(() => selectedFilter = item.$1),
                 ),
               ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildHistoryCard(Map<String, dynamic> item) {
+    final lat = (item['latitude'] as num?)?.toDouble();
+    final lon = (item['longitude'] as num?)?.toDouble();
+    final distance = lat != null && lon != null
+        ? LocationService.distanceFromOffice(latitude: lat, longitude: lon) / 1000
+        : null;
+
+    final selfieUrl =
+        item['selfie_display_url']?.toString() ?? item['selfie_url']?.toString();
+    final validImageUrl = selfieUrl != null && selfieUrl.startsWith('http');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFA),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => openDetail(item),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat('EEE, MMM d').format(
+                      DateTime.tryParse((item['date'] ?? '').toString()) ?? DateTime.now(),
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 30),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2F2EB),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, color: Color(0xFF4D8A7E), size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Completed',
+                        style: TextStyle(
+                          color: Color(0xFF4D8A7E),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+            const SizedBox(height: 4),
+            Text(
+              'Shift: ${(item['shift'] ?? 'general').toString().replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase())}',
+              style: const TextStyle(color: Color(0xFF6F7F79)),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.login, color: Color(0xFF4D8A7E), size: 18),
+                          SizedBox(width: 8),
+                          Text('Check In', style: TextStyle(color: Color(0xFF7B8A85))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatTime(item['check_in']),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 36),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.logout, color: Color(0xFFC7745F), size: 18),
+                          SizedBox(width: 8),
+                          Text('Check Out', style: TextStyle(color: Color(0xFF7B8A85))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        formatTime(item['check_out']),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 36),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Row(
+              children: [
+                Icon(Icons.location_on_outlined, size: 17, color: Color(0xFF8B9994)),
+                SizedBox(width: 6),
+                Text('Office - Main Building', style: TextStyle(color: Color(0xFF71807B))),
+              ],
+            ),
+            const Divider(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Distance from office',
+                        style: TextStyle(color: Color(0xFF72807B)),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        distance != null ? '${distance.toStringAsFixed(1)} km' : '-',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 32),
+                      ),
+                    ],
+                  ),
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 78,
+                    height: 78,
+                    child: validImageUrl
+                        ? Image.network(
+                            selfieUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: const Color(0xFFE6EEF8),
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.camera_alt_outlined, color: Color(0xFFA1B2C5)),
+                            ),
+                          )
+                        : Container(
+                            color: const Color(0xFFE6EEF8),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.camera_alt_outlined, color: Color(0xFFA1B2C5)),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    return RefreshIndicator(
+      onRefresh: loadData,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        children: [
+          const Text('Filter By', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          const SizedBox(height: 10),
+          _buildFilterChips(),
+          const SizedBox(height: 12),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 80),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 60),
+              child: Column(
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 10),
+                  const Text('โหลดประวัติไม่สำเร็จ'),
+                  const SizedBox(height: 8),
+                  Text(errorMessage!, textAlign: TextAlign.center),
+                ],
+              ),
+            )
+          else if (filteredData.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 90),
+              child: Center(
+                child: Text(
+                  'No records yet',
+                  style: TextStyle(color: Color(0xFFA0ABA7)),
+                ),
+              ),
+            )
+          else
+            ...filteredData.map(_buildHistoryCard),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.embedded) {
-      return _buildBody();
-    }
+    if (widget.embedded) return _buildBody();
 
-    return Scaffold(appBar: AppBar(title: const Text('Attendance History')), body: _buildBody());
+    return Scaffold(
+      appBar: AppBar(title: const Text('Attendance History')),
+      body: _buildBody(),
+    );
   }
 }
 
@@ -225,7 +346,7 @@ class HistoryDetailPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (selfieUrl != null && selfieUrl.isNotEmpty)
+          if (selfieUrl != null && selfieUrl.startsWith('http'))
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.network(

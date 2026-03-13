@@ -58,9 +58,32 @@ class _HomePageState extends State<HomePage> {
   DateTime now = DateTime.now();
   Timer? timeTicker;
   bool locationLoading = false;
+  bool recentLoading = false;
   double? currentLatitude;
   double? currentLongitude;
   String? currentAddress;
+  List<Map<String, dynamic>> recentActivities = [];
+
+  Future<void> loadRecentActivities() async {
+    setState(() => recentLoading = true);
+    try {
+      final history = await supabaseService.history();
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final todayRecords = history
+          .where((item) => item['date']?.toString() == today)
+          .take(5)
+          .toList();
+      if (!mounted) return;
+      setState(() => recentActivities = todayRecords);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => recentActivities = []);
+    } finally {
+      if (mounted) {
+        setState(() => recentLoading = false);
+      }
+    }
+  }
 
   Future<void> refreshCurrentLocation() async {
     setState(() => locationLoading = true);
@@ -103,6 +126,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     refreshCurrentLocation();
+    loadRecentActivities();
     timeTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => now = DateTime.now());
@@ -130,6 +154,8 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         onRefreshLocation: refreshCurrentLocation,
         onTabChanged: (index) => setState(() => selectedTab = index),
+        recentActivities: recentActivities,
+        recentLoading: recentLoading,
         onLogout: logout,
       ),
       _AttendanceActionTab(
@@ -139,6 +165,7 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
+        onActionCompleted: loadRecentActivities,
         onLogout: logout,
       ),
       _AttendanceActionTab(
@@ -148,9 +175,10 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
+        onActionCompleted: loadRecentActivities,
         onLogout: logout,
       ),
-      const HistoryPage(embedded: true),
+      _HistoryTabScreen(userLabel: userLabel, onLogout: logout),
       _MapTab(
         userLabel: userLabel,
         onLogout: logout,
@@ -260,6 +288,8 @@ class _HomeTab extends StatelessWidget {
     required this.currentAddress,
     required this.onRefreshLocation,
     required this.onTabChanged,
+    required this.recentActivities,
+    required this.recentLoading,
     required this.onLogout,
   });
 
@@ -271,6 +301,8 @@ class _HomeTab extends StatelessWidget {
   final String? currentAddress;
   final VoidCallback onRefreshLocation;
   final ValueChanged<int> onTabChanged;
+  final List<Map<String, dynamic>> recentActivities;
+  final bool recentLoading;
   final Future<void> Function() onLogout;
 
   @override
@@ -312,64 +344,81 @@ class _HomeTab extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _SoftPanel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
+          child: Builder(
+            builder: (_) {
+              final latest = recentActivities.isNotEmpty ? recentActivities.first : null;
+              final checkInTime = latest?['check_in'] != null
+                  ? DateFormat('hh:mm a').format(
+                      DateTime.parse(latest!['check_in'].toString()).toLocal(),
+                    )
+                  : '--:--';
+              final checkOutTime = latest?['check_out'] != null
+                  ? DateFormat('hh:mm a').format(
+                      DateTime.parse(latest!['check_out'].toString()).toLocal(),
+                    )
+                  : '--:--';
+              final checkedIn = latest?['check_in'] != null;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.circle, size: 8, color: Color(0xFFE3B362)),
-                  SizedBox(width: 8),
-                  Text(
-                    'Not Checked In',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: checkedIn
+                            ? const Color(0xFF4D8A7E)
+                            : const Color(0xFFE3B362),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        checkedIn ? 'Currently Working' : 'Not Checked In',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F3F2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Check In', style: TextStyle(color: Color(0xFF95A29D))),
+                              Text(checkInTime, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F3F2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Check Out', style: TextStyle(color: Color(0xFF95A29D))),
+                              Text(checkOutTime, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F3F2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Check In', style: TextStyle(color: Color(0xFF95A29D))),
-                          Text('--:--', style: TextStyle(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F3F2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Check Out', style: TextStyle(color: Color(0xFF95A29D))),
-                          Text('--:--', style: TextStyle(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
         ),
         const SizedBox(height: 10),
@@ -400,21 +449,56 @@ class _HomeTab extends StatelessWidget {
         _SoftPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Row(
+            children: [
+              const Row(
                 children: [
                   Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.w700)),
                   Spacer(),
                   Text('Today', style: TextStyle(color: Color(0xFF9FAAA6))),
                 ],
               ),
-              SizedBox(height: 18),
-              Center(
-                child: Text(
-                  'No activity yet today',
-                  style: TextStyle(color: Color(0xFFA0ABA7)),
-                ),
-              ),
+              const SizedBox(height: 12),
+              if (recentLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (recentActivities.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No activity yet today',
+                      style: TextStyle(color: Color(0xFFA0ABA7)),
+                    ),
+                  ),
+                )
+              else
+                ...recentActivities.take(3).map((item) {
+                  final checkIn = item['check_in'] != null
+                      ? DateFormat('hh:mm a').format(
+                          DateTime.parse(item['check_in'].toString()).toLocal(),
+                        )
+                      : '--:--';
+                  final checkOut = item['check_out'] != null
+                      ? DateFormat('hh:mm a').format(
+                          DateTime.parse(item['check_out'].toString()).toLocal(),
+                        )
+                      : '--:--';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF4D8A7E)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${item['shift'] ?? 'general'} • In $checkIn • Out $checkOut',
+                            style: const TextStyle(color: Color(0xFF51615B)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ),
         ),
@@ -489,6 +573,7 @@ class _AttendanceActionTab extends StatefulWidget {
     required this.currentAddress,
     required this.locationRefreshing,
     required this.onRefreshLocation,
+    required this.onActionCompleted,
     required this.onLogout,
   });
 
@@ -498,6 +583,7 @@ class _AttendanceActionTab extends StatefulWidget {
   final String? currentAddress;
   final bool locationRefreshing;
   final Future<void> Function() onRefreshLocation;
+  final Future<void> Function() onActionCompleted;
   final Future<void> Function() onLogout;
 
   @override
@@ -608,6 +694,7 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
             ? 'Check In สำเร็จ (${selectedShift.shortLabel})'
             : 'Check Out สำเร็จ (${selectedShift.shortLabel})',
       );
+      await widget.onActionCompleted();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -797,6 +884,26 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
             child: Text(isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'),
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _HistoryTabScreen extends StatelessWidget {
+  const _HistoryTabScreen({required this.userLabel, required this.onLogout});
+
+  final String userLabel;
+  final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          child: _HeaderBar(userLabel: userLabel, onLogout: onLogout),
+        ),
+        const Expanded(child: HistoryPage(embedded: true)),
       ],
     );
   }

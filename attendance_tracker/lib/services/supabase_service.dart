@@ -28,12 +28,14 @@ class AttendanceSupabaseService {
     final path = '${user.id}/$fileName';
 
     try {
-      await _client.storage
-          .from('attendance-selfie')
-          .uploadBinary(path, selfieBytes);
+      await _client.storage.from('attendance-selfie').uploadBinary(
+        path,
+        selfieBytes,
+        fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+      );
       return path;
-    } catch (_) {
-      return null;
+    } catch (e) {
+      throw Exception('อัปโหลดรูปไม่สำเร็จ: $e');
     }
   }
 
@@ -74,7 +76,11 @@ class AttendanceSupabaseService {
           .from('attendance-selfie')
           .createSignedUrl(path, 60 * 60);
     } catch (_) {
-      return normalized;
+      try {
+        return _client.storage.from('attendance-selfie').getPublicUrl(path);
+      } catch (_) {
+        return null;
+      }
     }
   }
 
