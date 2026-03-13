@@ -24,6 +24,23 @@ class _HistoryPageState extends State<HistoryPage> {
   String? errorMessage;
   String selectedFilter = 'all';
 
+  static const _historyTitleStyle = TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 22,
+    height: 1.2,
+  );
+
+  static const _sectionLabelStyle = TextStyle(
+    color: Color(0xFF7B8A85),
+    fontSize: 13,
+  );
+
+  static const _valueStyle = TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 24,
+    height: 1.1,
+  );
+
   Future<void> loadData() async {
     setState(() {
       loading = true;
@@ -139,10 +156,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       DateTime.tryParse((item['date'] ?? '').toString()) ??
                           DateTime.now(),
                     ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 30,
-                    ),
+                    style: _historyTitleStyle,
                   ),
                 ),
                 Container(
@@ -192,17 +206,14 @@ class _HistoryPageState extends State<HistoryPage> {
                           SizedBox(width: 8),
                           Text(
                             'Check In',
-                            style: TextStyle(color: Color(0xFF7B8A85)),
+                            style: _sectionLabelStyle,
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         formatTime(item['check_in']),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 36,
-                        ),
+                        style: _valueStyle,
                       ),
                     ],
                   ),
@@ -221,17 +232,14 @@ class _HistoryPageState extends State<HistoryPage> {
                           SizedBox(width: 8),
                           Text(
                             'Check Out',
-                            style: TextStyle(color: Color(0xFF7B8A85)),
+                            style: _sectionLabelStyle,
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         formatTime(item['check_out']),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 36,
-                        ),
+                        style: _valueStyle,
                       ),
                     ],
                   ),
@@ -262,17 +270,14 @@ class _HistoryPageState extends State<HistoryPage> {
                     children: [
                       const Text(
                         'Distance from office',
-                        style: TextStyle(color: Color(0xFF72807B)),
+                        style: _sectionLabelStyle,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         distance != null
                             ? '${distance.toStringAsFixed(1)} km'
                             : '-',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 32,
-                        ),
+                        style: _valueStyle,
                       ),
                     ],
                   ),
