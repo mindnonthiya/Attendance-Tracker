@@ -63,6 +63,7 @@ class _HomePageState extends State<HomePage> {
   double? currentLongitude;
   String? currentAddress;
   List<Map<String, dynamic>> recentActivities = [];
+  int historyRefreshToken = 0;
 
   Future<void> loadRecentActivities() async {
     setState(() => recentLoading = true);
@@ -83,6 +84,12 @@ class _HomePageState extends State<HomePage> {
         setState(() => recentLoading = false);
       }
     }
+  }
+
+  Future<void> handleAttendanceActionCompleted() async {
+    await loadRecentActivities();
+    if (!mounted) return;
+    setState(() => historyRefreshToken++);
   }
 
   Future<void> refreshCurrentLocation() async {
@@ -165,7 +172,7 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
-        onActionCompleted: loadRecentActivities,
+        onActionCompleted: handleAttendanceActionCompleted,
         onLogout: logout,
       ),
       _AttendanceActionTab(
@@ -175,10 +182,14 @@ class _HomePageState extends State<HomePage> {
         currentAddress: currentAddress,
         locationRefreshing: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
-        onActionCompleted: loadRecentActivities,
+        onActionCompleted: handleAttendanceActionCompleted,
         onLogout: logout,
       ),
-      _HistoryTabScreen(userLabel: userLabel, onLogout: logout),
+      _HistoryTabScreen(
+        userLabel: userLabel,
+        onLogout: logout,
+        refreshToken: historyRefreshToken,
+      ),
       _MapTab(
         userLabel: userLabel,
         onLogout: logout,
@@ -971,10 +982,15 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
 }
 
 class _HistoryTabScreen extends StatelessWidget {
-  const _HistoryTabScreen({required this.userLabel, required this.onLogout});
+  const _HistoryTabScreen({
+    required this.userLabel,
+    required this.onLogout,
+    required this.refreshToken,
+  });
 
   final String userLabel;
   final Future<void> Function() onLogout;
+  final int refreshToken;
 
   @override
   Widget build(BuildContext context) {
@@ -984,7 +1000,12 @@ class _HistoryTabScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: _HeaderBar(userLabel: userLabel, onLogout: onLogout),
         ),
-        const Expanded(child: HistoryPage(embedded: true)),
+        Expanded(
+          child: HistoryPage(
+            key: ValueKey(refreshToken),
+            embedded: true,
+          ),
+        ),
       ],
     );
   }
