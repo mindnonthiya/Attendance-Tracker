@@ -22,6 +22,17 @@ extension AttendanceShiftExtension on AttendanceShift {
   String get label {
     switch (this) {
       case AttendanceShift.morning:
+        return 'Morning (9 AM - 5 PM)';
+      case AttendanceShift.afternoon:
+        return 'Afternoon (1 PM - 9 PM)';
+      case AttendanceShift.evening:
+        return 'Evening (5 PM - 1 AM)';
+    }
+  }
+
+  String get shortLabel {
+    switch (this) {
+      case AttendanceShift.morning:
         return 'Morning';
       case AttendanceShift.afternoon:
         return 'Afternoon';
@@ -53,7 +64,6 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> refreshCurrentLocation() async {
     setState(() => locationLoading = true);
-
     try {
       final position = await LocationService.getCurrentLocation();
       final address = await LocationService.getAddressFromLatLng(
@@ -68,9 +78,9 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     } finally {
       if (mounted) {
         setState(() => locationLoading = false);
@@ -115,60 +125,60 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final userLabel =
-        supabaseService.currentUser?.email?.split('@').first ?? 'Sarah Johnson';
+        supabaseService.currentUser?.email ?? 'mindnonthiya@gmail.com';
 
     final tabs = [
-      _HomeDashboardTab(
+      _HomeTab(
         userLabel: userLabel,
         now: now,
+        locationLoading: locationLoading,
         currentLatitude: currentLatitude,
         currentLongitude: currentLongitude,
         currentAddress: currentAddress,
-        locationLoading: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
-        onOpenHistory: openHistory,
-        onLogout: logout,
         onTabChanged: (index) => setState(() => selectedTab = index),
+        onLogout: logout,
       ),
       _AttendanceActionTab(
         action: AttendanceAction.checkIn,
         now: now,
         userLabel: userLabel,
-        onOpenHistory: openHistory,
+        currentAddress: currentAddress,
         onLogout: logout,
       ),
       _AttendanceActionTab(
         action: AttendanceAction.checkOut,
         now: now,
         userLabel: userLabel,
-        onOpenHistory: openHistory,
+        currentAddress: currentAddress,
         onLogout: logout,
       ),
+      _HistoryTab(userLabel: userLabel, onOpenHistory: openHistory, onLogout: logout),
       _MapTab(
         userLabel: userLabel,
-        onOpenHistory: openHistory,
         onLogout: logout,
         currentLatitude: currentLatitude,
         currentLongitude: currentLongitude,
+        currentAddress: currentAddress,
         locationLoading: locationLoading,
         onRefreshLocation: refreshCurrentLocation,
       ),
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F4F3),
+      backgroundColor: const Color(0xFFEFF2F1),
       body: SafeArea(child: IndexedStack(index: selectedTab, children: tabs)),
       bottomNavigationBar: NavigationBar(
-        height: 64,
+        height: 66,
+        backgroundColor: Colors.white,
         selectedIndex: selectedTab,
-        onDestinationSelected: (index) {
-          setState(() => selectedTab = index);
-        },
-        indicatorColor: const Color(0x1A4A857A),
+        indicatorColor: const Color(0x1A4D8A7E),
+        onDestinationSelected: (index) => setState(() => selectedTab = index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.login), label: 'Check In'),
           NavigationDestination(icon: Icon(Icons.logout), label: 'Check Out'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'History'),
           NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
         ],
       ),
@@ -176,15 +186,10 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _TopProfileHeader extends StatelessWidget {
-  const _TopProfileHeader({
-    required this.userLabel,
-    required this.onOpenHistory,
-    required this.onLogout,
-  });
+class _HeaderBar extends StatelessWidget {
+  const _HeaderBar({required this.userLabel, required this.onLogout});
 
   final String userLabel;
-  final VoidCallback onOpenHistory;
   final Future<void> Function() onLogout;
 
   @override
@@ -197,41 +202,30 @@ class _TopProfileHeader extends StatelessWidget {
             children: [
               const Text(
                 'Good Morning',
-                style: TextStyle(color: Color(0xFF8C9893), fontSize: 14),
+                style: TextStyle(color: Color(0xFF84928C), fontSize: 14),
               ),
               const SizedBox(height: 2),
               Text(
                 userLabel,
                 style: const TextStyle(
+                  color: Color(0xFF1E2A28),
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  fontSize: 32,
-                  color: Color(0xFF1E2B29),
                 ),
               ),
               const Text(
                 'Acme Corporation',
-                style: TextStyle(color: Color(0xFF9AA5A0), fontSize: 14),
+                style: TextStyle(color: Color(0xFF96A29D), fontSize: 13),
               ),
             ],
           ),
         ),
-        PopupMenuButton<String>(
-          color: Colors.white,
-          onSelected: (value) {
-            if (value == 'history') {
-              onOpenHistory();
-            } else {
-              onLogout();
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: 'history', child: Text('History')),
-            PopupMenuItem(value: 'logout', child: Text('Logout')),
-          ],
+        InkWell(
+          borderRadius: BorderRadius.circular(40),
+          onTap: onLogout,
           child: const CircleAvatar(
-            radius: 24,
-            backgroundColor: Color(0xFF4A857A),
-            child: Icon(Icons.person_outline, color: Colors.white),
+            backgroundColor: Color(0xFF4D8A7E),
+            child: Icon(Icons.logout_rounded, color: Colors.white),
           ),
         ),
       ],
@@ -239,8 +233,8 @@ class _TopProfileHeader extends StatelessWidget {
   }
 }
 
-class _SoftCard extends StatelessWidget {
-  const _SoftCard({required this.child, this.padding = const EdgeInsets.all(16)});
+class _SoftPanel extends StatelessWidget {
+  const _SoftPanel({required this.child, this.padding = const EdgeInsets.all(16)});
 
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -251,7 +245,7 @@ class _SoftCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAF9),
+        color: const Color(0xFFF9FAFA),
         borderRadius: BorderRadius.circular(18),
       ),
       child: child,
@@ -259,70 +253,60 @@ class _SoftCard extends StatelessWidget {
   }
 }
 
-class _HomeDashboardTab extends StatelessWidget {
-  const _HomeDashboardTab({
+class _HomeTab extends StatelessWidget {
+  const _HomeTab({
     required this.userLabel,
     required this.now,
+    required this.locationLoading,
     required this.currentLatitude,
     required this.currentLongitude,
     required this.currentAddress,
-    required this.locationLoading,
     required this.onRefreshLocation,
-    required this.onOpenHistory,
-    required this.onLogout,
     required this.onTabChanged,
+    required this.onLogout,
   });
 
   final String userLabel;
   final DateTime now;
+  final bool locationLoading;
   final double? currentLatitude;
   final double? currentLongitude;
   final String? currentAddress;
-  final bool locationLoading;
   final VoidCallback onRefreshLocation;
-  final VoidCallback onOpenHistory;
-  final Future<void> Function() onLogout;
   final ValueChanged<int> onTabChanged;
+  final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
-    final dateText = DateFormat('EEEE, MMM d, y').format(now);
-    final timeText = DateFormat('hh:mm').format(now);
-    final meridiem = DateFormat('a').format(now);
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _TopProfileHeader(
-          userLabel: userLabel,
-          onOpenHistory: onOpenHistory,
-          onLogout: onLogout,
-        ),
+        _HeaderBar(userLabel: userLabel, onLogout: onLogout),
         const SizedBox(height: 10),
-        _SoftCard(
+        _SoftPanel(
           child: Column(
             children: [
               Text(
-                dateText,
+                DateFormat('EEEE, MMM d, y').format(now),
                 style: const TextStyle(
-                  color: Color(0xFF818E89),
+                  color: Color(0xFF84918C),
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
-                timeText,
+                DateFormat('hh:mm').format(now),
                 style: const TextStyle(
-                  fontSize: 62,
-                  height: 1,
-                  color: Color(0xFF1E2B29),
+                  fontSize: 56,
+                  color: Color(0xFF1C2A27),
                   fontWeight: FontWeight.w700,
+                  height: 0.95,
                 ),
               ),
               Text(
-                ':${DateFormat('ss').format(now)} $meridiem',
+                ':${DateFormat('ss').format(now)} ${DateFormat('a').format(now)}',
                 style: const TextStyle(
-                  color: Color(0xFF70817A),
+                  color: Color(0xFF78857F),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -330,24 +314,63 @@ class _HomeDashboardTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        _SoftCard(
-          child: Row(
+        _SoftPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.brightness_1, size: 10, color: Color(0xFFE0A23A)),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Not Checked In',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+              const Row(
+                children: [
+                  Icon(Icons.circle, size: 8, color: Color(0xFFE3B362)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Not Checked In',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () => onTabChanged(1),
-                child: const Text('Check In'),
-              ),
-              TextButton(
-                onPressed: () => onTabChanged(2),
-                child: const Text('Check Out'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F3F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Check In', style: TextStyle(color: Color(0xFF95A29D))),
+                          Text('--:--', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F3F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Check Out', style: TextStyle(color: Color(0xFF95A29D))),
+                          Text('--:--', style: TextStyle(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -356,46 +379,43 @@ class _HomeDashboardTab extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _ActionTile(
-                icon: Icons.login,
+              child: _ActionButton(
                 title: 'Check In',
-                subtitle: 'Tap to check in',
-                color: const Color(0xFF4A857A),
+                subtitle: 'Start shift',
+                icon: Icons.login,
+                color: const Color(0xFF4D8A7E),
                 onTap: () => onTabChanged(1),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _ActionTile(
-                icon: Icons.logout,
+              child: _ActionButton(
                 title: 'Check Out',
-                subtitle: 'Tap to check out',
-                color: const Color(0xFFC5715A),
+                subtitle: 'End shift',
+                icon: Icons.logout,
+                color: const Color(0xFFC7745F),
                 onTap: () => onTabChanged(2),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        _SoftCard(
+        _SoftPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: const [
               Row(
-                children: const [
-                  Text(
-                    'Recent Activity',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                children: [
+                  Text('Recent Activity', style: TextStyle(fontWeight: FontWeight.w700)),
                   Spacer(),
-                  Text('Today', style: TextStyle(color: Color(0xFF9CA6A3))),
+                  Text('Today', style: TextStyle(color: Color(0xFF9FAAA6))),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Center(
+              SizedBox(height: 18),
+              Center(
                 child: Text(
                   'No activity yet today',
-                  style: TextStyle(color: Color(0xFFA1AAA7)),
+                  style: TextStyle(color: Color(0xFFA0ABA7)),
                 ),
               ),
             ],
@@ -404,17 +424,15 @@ class _HomeDashboardTab extends StatelessWidget {
         const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: locationLoading ? null : onRefreshLocation,
-          icon: const Icon(Icons.near_me_outlined),
-          label: Text(
-            locationLoading ? 'Updating location...' : 'Refresh Current Location',
-          ),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A857A)),
+          icon: const Icon(Icons.refresh),
+          label: Text(locationLoading ? 'Refreshing...' : 'Refresh Location'),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4D8A7E)),
         ),
         if (currentAddress != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            'Current: $currentAddress (${currentLatitude?.toStringAsFixed(4) ?? '--'}, ${currentLongitude?.toStringAsFixed(4) ?? '--'})',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF7D8985)),
+            '$currentAddress (${currentLatitude?.toStringAsFixed(4) ?? '--'}, ${currentLongitude?.toStringAsFixed(4) ?? '--'})',
+            style: const TextStyle(color: Color(0xFF83908B), fontSize: 12),
           ),
         ],
       ],
@@ -422,49 +440,43 @@ class _HomeDashboardTab extends StatelessWidget {
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
     required this.title,
     required this.subtitle,
+    required this.icon,
     required this.color,
     required this.onTap,
   });
 
-  final IconData icon;
   final String title;
   final String subtitle;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: Ink(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: color,
-        ),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Colors.white.withOpacity(0.9)),
-            const SizedBox(height: 10),
+            Icon(icon, color: Colors.white),
+            const SizedBox(height: 8),
             Text(
               title,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 24,
+                fontSize: 28,
               ),
             ),
-            Text(
-              subtitle,
-              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12),
-            ),
+            Text(subtitle, style: const TextStyle(color: Color(0xD6FFFFFF))),
           ],
         ),
       ),
@@ -477,14 +489,14 @@ class _AttendanceActionTab extends StatefulWidget {
     required this.action,
     required this.now,
     required this.userLabel,
-    required this.onOpenHistory,
+    required this.currentAddress,
     required this.onLogout,
   });
 
   final AttendanceAction action;
   final DateTime now;
   final String userLabel;
-  final VoidCallback onOpenHistory;
+  final String? currentAddress;
   final Future<void> Function() onLogout;
 
   @override
@@ -513,9 +525,9 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
       setState(() => selfieBytes = bytes);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปิดกล้องไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เปิดกล้องไม่สำเร็จ: $e')),
+      );
     }
   }
 
@@ -552,9 +564,7 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         );
       }
 
-      final selfiePath = await supabaseService.uploadSelfie(
-        selfieBytes: selfieBytes!,
-      );
+      final selfiePath = await supabaseService.uploadSelfie(selfieBytes: selfieBytes!);
 
       if (widget.action == AttendanceAction.checkIn) {
         await supabaseService.clockIn(
@@ -572,16 +582,16 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         SnackBar(
           content: Text(
             widget.action == AttendanceAction.checkIn
-                ? 'Check In สำเร็จ (${selectedShift.label})'
-                : 'Check Out สำเร็จ (${selectedShift.label})',
+                ? 'Check In สำเร็จ (${selectedShift.shortLabel})'
+                : 'Check Out สำเร็จ (${selectedShift.shortLabel})',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     } finally {
       if (mounted) {
         setState(() => loading = false);
@@ -592,132 +602,163 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   @override
   Widget build(BuildContext context) {
     final isCheckIn = widget.action == AttendanceAction.checkIn;
+    final accent = isCheckIn ? const Color(0xFF4D8A7E) : const Color(0xFFC7745F);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _TopProfileHeader(
-          userLabel: widget.userLabel,
-          onOpenHistory: widget.onOpenHistory,
-          onLogout: widget.onLogout,
-        ),
+        _HeaderBar(userLabel: widget.userLabel, onLogout: widget.onLogout),
         const SizedBox(height: 10),
-        _SoftCard(
+        _SoftPanel(
           child: Column(
             children: [
               CircleAvatar(
-                radius: 42,
+                radius: 36,
                 backgroundColor: isCheckIn
-                    ? const Color(0xFFE1F1EC)
-                    : const Color(0xFFF8E7E2),
+                    ? const Color(0xFFE3F2ED)
+                    : const Color(0xFFF9E8E4),
                 child: Icon(
                   isCheckIn ? Icons.login : Icons.logout,
-                  size: 34,
-                  color: isCheckIn
-                      ? const Color(0xFF4A857A)
-                      : const Color(0xFFC5715A),
+                  size: 30,
+                  color: accent,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
                 isCheckIn ? 'Check In' : 'Check Out',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 30),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 34),
               ),
               Text(
                 DateFormat('hh:mm a').format(widget.now),
-                style: TextStyle(
-                  fontSize: 42,
-                  color: isCheckIn
-                      ? const Color(0xFF4A857A)
-                      : const Color(0xFFC5715A),
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 48, color: accent),
               ),
               Text(
                 DateFormat('EEEE, MMM d, y').format(widget.now),
-                style: const TextStyle(color: Color(0xFF8A9590)),
+                style: const TextStyle(color: Color(0xFF8E9A95)),
               ),
             ],
           ),
         ),
         const SizedBox(height: 10),
-        _SoftCard(
+        _SoftPanel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Shift', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text('Select Shift', style: TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              SegmentedButton<AttendanceShift>(
-                segments: AttendanceShift.values
+              DropdownButtonFormField<AttendanceShift>(
+                value: selectedShift,
+                items: AttendanceShift.values
                     .map(
-                      (shift) => ButtonSegment<AttendanceShift>(
+                      (shift) => DropdownMenuItem<AttendanceShift>(
                         value: shift,
-                        label: Text(shift.label),
+                        child: Text(shift.label),
                       ),
                     )
                     .toList(),
-                selected: {selectedShift},
-                onSelectionChanged: (selection) {
-                  setState(() => selectedShift = selection.first);
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => selectedShift = value);
+                  }
                 },
               ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: loading ? null : takeSelfie,
-                icon: const Icon(Icons.camera_alt_outlined),
-                label: Text(selfieBytes == null ? 'Capture Selfie' : 'Retake Selfie'),
-              ),
-              if (selfieBytes != null) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.memory(
-                    selfieBytes!,
-                    height: 120,
-                    width: 120,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
         const SizedBox(height: 10),
-        _SoftCard(
-          child: Row(
+        _SoftPanel(
+          child: Column(
             children: [
-              const Icon(Icons.place_outlined, color: Color(0xFF4A857A)),
-              const SizedBox(width: 8),
-              Expanded(
+              const Align(
+                alignment: Alignment.centerLeft,
                 child: Text(
-                  'Office - Main Building\n${LocationService.officeLatitude.toStringAsFixed(4)}, ${LocationService.officeLongitude.toStringAsFixed(4)}',
-                  style: const TextStyle(color: Color(0xFF5E6D67)),
+                  'Verification Selfie',
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: loading ? null : takeSelfie,
+                child: Container(
+                  height: 132,
+                  width: 132,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6F2EE),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: selfieBytes == null
+                      ? const Icon(Icons.camera_alt_outlined, size: 38, color: Color(0xFF4D8A7E))
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(selfieBytes!, fit: BoxFit.cover),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: loading ? null : takeSelfie,
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4D8A7E)),
+                child: const Text('Take Photo'),
               ),
             ],
           ),
         ),
         const SizedBox(height: 10),
-        _SoftCard(
-          child: Text(
-            'Work Duration\n-- hrs -- min',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+        _SoftPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF75847F)),
+                  SizedBox(width: 6),
+                  Text('Location', style: TextStyle(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text('Office - Main Building', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                'Distance: ${(lastDistance ?? 0).toStringAsFixed(1)} m',
+                style: const TextStyle(color: Color(0xFF8E9A95)),
+              ),
+              if (widget.currentAddress != null)
+                Text(
+                  widget.currentAddress!,
+                  style: const TextStyle(color: Color(0xFF8E9A95), fontSize: 12),
+                ),
+            ],
           ),
         ),
-        if (lastDistance != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Distance from office: ${lastDistance!.toStringAsFixed(0)} m',
-            style: const TextStyle(color: Color(0xFF7B8682)),
+        const SizedBox(height: 10),
+        _SoftPanel(
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule, size: 18, color: Color(0xFF75847F)),
+                  SizedBox(width: 6),
+                  Text('Work Duration', style: TextStyle(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                '-- hrs -- min',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 36,
+                  color: Color(0xFF1E2A28),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
         const SizedBox(height: 10),
         FilledButton(
           onPressed: loading || selfieBytes == null ? null : submitAction,
           style: FilledButton.styleFrom(
-            backgroundColor: isCheckIn
-                ? const Color(0xFF4A857A)
-                : const Color(0xFFC5715A),
+            backgroundColor: accent,
             foregroundColor: Colors.white,
           ),
           child: Padding(
@@ -730,22 +771,67 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   }
 }
 
-class _MapTab extends StatefulWidget {
-  const _MapTab({
+class _HistoryTab extends StatelessWidget {
+  const _HistoryTab({
     required this.userLabel,
     required this.onOpenHistory,
     required this.onLogout,
-    required this.currentLatitude,
-    required this.currentLongitude,
-    required this.locationLoading,
-    required this.onRefreshLocation,
   });
 
   final String userLabel;
   final VoidCallback onOpenHistory;
   final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+      children: [
+        _HeaderBar(userLabel: userLabel, onLogout: onLogout),
+        const SizedBox(height: 10),
+        _SoftPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Attendance History',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+              ),
+              const SizedBox(height: 24),
+              const Center(
+                child: Text('No records yet', style: TextStyle(color: Color(0xFFA0ABA7))),
+              ),
+              const SizedBox(height: 18),
+              Center(
+                child: OutlinedButton(
+                  onPressed: onOpenHistory,
+                  child: const Text('Open Full History'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MapTab extends StatefulWidget {
+  const _MapTab({
+    required this.userLabel,
+    required this.onLogout,
+    required this.currentLatitude,
+    required this.currentLongitude,
+    required this.currentAddress,
+    required this.locationLoading,
+    required this.onRefreshLocation,
+  });
+
+  final String userLabel;
+  final Future<void> Function() onLogout;
   final double? currentLatitude;
   final double? currentLongitude;
+  final String? currentAddress;
   final bool locationLoading;
   final Future<void> Function() onRefreshLocation;
 
@@ -796,11 +882,13 @@ class _MapTabState extends State<_MapTab> {
       mapController.move(point, 16);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
     } finally {
-      if (mounted) setState(() => searching = false);
+      if (mounted) {
+        setState(() => searching = false);
+      }
     }
   }
 
@@ -812,10 +900,7 @@ class _MapTabState extends State<_MapTab> {
 
   @override
   Widget build(BuildContext context) {
-    final office = LatLng(
-      LocationService.officeLatitude,
-      LocationService.officeLongitude,
-    );
+    final office = LatLng(LocationService.officeLatitude, LocationService.officeLongitude);
     final current =
         widget.currentLatitude != null && widget.currentLongitude != null
         ? LatLng(widget.currentLatitude!, widget.currentLongitude!)
@@ -824,20 +909,16 @@ class _MapTabState extends State<_MapTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _TopProfileHeader(
-          userLabel: widget.userLabel,
-          onOpenHistory: widget.onOpenHistory,
-          onLogout: widget.onLogout,
-        ),
+        _HeaderBar(userLabel: widget.userLabel, onLogout: widget.onLogout),
         const SizedBox(height: 10),
-        _SoftCard(
+        _SoftPanel(
           padding: EdgeInsets.zero,
           child: Column(
             children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                 child: SizedBox(
-                  height: 220,
+                  height: 240,
                   child: FlutterMap(
                     mapController: mapController,
                     options: MapOptions(initialCenter: current ?? office, initialZoom: 15),
@@ -861,7 +942,7 @@ class _MapTabState extends State<_MapTab> {
                               height: 24,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF4A857A),
+                                  color: const Color(0xFF4D8A7E),
                                   shape: BoxShape.circle,
                                   border: Border.all(color: Colors.white, width: 3),
                                 ),
@@ -874,7 +955,7 @@ class _MapTabState extends State<_MapTab> {
                               height: 42,
                               child: const Icon(
                                 Icons.place,
-                                color: Color(0xFFC5715A),
+                                color: Color(0xFFC7745F),
                                 size: 36,
                               ),
                             ),
@@ -885,18 +966,37 @@ class _MapTabState extends State<_MapTab> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_searching, color: Color(0xFF4A857A)),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.place_outlined, color: Color(0xFF4D8A7E)),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Your Location\n${current?.latitude.toStringAsFixed(4) ?? '--'}, ${current?.longitude.toStringAsFixed(4) ?? '--'}',
-                        style: const TextStyle(color: Color(0xFF63706B)),
+                        'Your Location\n${widget.currentAddress ?? 'Office - Main Building'}\n${current?.latitude.toStringAsFixed(4) ?? '--'}, ${current?.longitude.toStringAsFixed(4) ?? '--'}',
+                        style: const TextStyle(color: Color(0xFF65736E)),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SoftPanel(
+          child: Row(
+            children: const [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Color(0xFFE2F1EC),
+                child: Icon(Icons.location_city, size: 18, color: Color(0xFF4D8A7E)),
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Office Info\nMain Office\n123 Business Street\nNew York, NY 10001',
+                  style: TextStyle(color: Color(0xFF6C7974)),
                 ),
               ),
             ],
@@ -919,9 +1019,9 @@ class _MapTabState extends State<_MapTab> {
         const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: widget.locationLoading ? null : widget.onRefreshLocation,
-          icon: const Icon(Icons.my_location),
+          icon: const Icon(Icons.refresh),
           label: Text(widget.locationLoading ? 'Refreshing...' : 'Refresh Location'),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A857A)),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4D8A7E)),
         ),
       ],
     );
