@@ -8,6 +8,12 @@ class AttendanceSupabaseService {
 
   final SupabaseClient _client;
 
+  static const String _defaultSelfieBucket = 'attendance-selfie';
+  static const List<String> _fallbackSelfieBuckets = [
+    _defaultSelfieBucket,
+    'attendance-selfies',
+  ];
+
   User? get currentUser => _client.auth.currentUser;
 
   Future<void> signIn({required String email, required String password}) async {
@@ -27,42 +33,62 @@ class AttendanceSupabaseService {
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${user.id}.jpg';
     final path = '${user.id}/$fileName';
 
-    try {
-      await _client.storage
-          .from('attendance-selfie')
-          .uploadBinary(
-            path,
-            selfieBytes,
-            fileOptions: const FileOptions(
-              contentType: 'image/jpeg',
-              upsert: true,
-            ),
-          );
-      return path;
-    } catch (e) {
-      throw Exception('อัปโหลดรูปไม่สำเร็จ: $e');
+    for (final bucket in _fallbackSelfieBuckets) {
+      try {
+        await _client.storage
+            .from(bucket)
+            .uploadBinary(
+              path,
+              selfieBytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/jpeg',
+                upsert: true,
+              ),
+            );
+
+        return '$bucket/$path';
+      } on StorageException catch (e) {
+        final message = e.message.toLowerCase();
+        if (message.contains('bucket not found') || e.statusCode == '404') {
+          continue;
+        }
+
+        throw Exception('อัปโหลดรูปไม่สำเร็จ: ${e.message}');
+      } catch (e) {
+        throw Exception('อัปโหลดรูปไม่สำเร็จ: $e');
+      }
     }
+
+    throw Exception(
+      'อัปโหลดรูปไม่สำเร็จ: ไม่พบบัคเก็ตเก็บรูป (${_fallbackSelfieBuckets.join(', ')})\n'
+      'กรุณาสร้าง Storage bucket ใน Supabase แล้วลองใหม่อีกครั้ง',
+    );
   }
 
-  String _extractStoragePath(String raw) {
+  ({String bucket, String path}) _extractStorageRef(String raw) {
     final normalized = raw.trim();
-    if (normalized.startsWith('attendance-selfie/')) {
-      return normalized.replaceFirst('attendance-selfie/', '');
+
+    for (final bucket in _fallbackSelfieBuckets) {
+      if (normalized.startsWith('$bucket/')) {
+        return (bucket: bucket, path: normalized.replaceFirst('$bucket/', ''));
+      }
     }
 
     final uri = Uri.tryParse(normalized);
-    if (uri == null || !uri.hasScheme) {
-      return normalized;
+    if (uri != null && uri.hasScheme) {
+      final segments = uri.pathSegments;
+      for (var i = 0; i < segments.length; i++) {
+        final segment = segments[i];
+        if (_fallbackSelfieBuckets.contains(segment) && i < segments.length - 1) {
+          return (
+            bucket: segment,
+            path: Uri.decodeComponent(segments.sublist(i + 1).join('/')),
+          );
+        }
+      }
     }
 
-    final segments = uri.pathSegments;
-    final bucketIndex = segments.indexOf('attendance-selfie');
-    if (bucketIndex != -1 && bucketIndex < segments.length - 1) {
-      final objectSegments = segments.sublist(bucketIndex + 1);
-      return Uri.decodeComponent(objectSegments.join('/'));
-    }
-
-    return normalized;
+    return (bucket: _defaultSelfieBucket, path: normalized);
   }
 
   Future<String?> _buildDisplaySelfieUrl(String? raw) async {
@@ -71,22 +97,34 @@ class AttendanceSupabaseService {
     }
 
     final normalized = raw.trim();
-    if (normalized.contains('/object/public/attendance-selfie/')) {
+    if (normalized.contains('/object/public/')) {
       return normalized;
     }
 
-    final path = _extractStoragePath(normalized);
-    try {
-      return await _client.storage
-          .from('attendance-selfie')
-          .createSignedUrl(path, 60 * 60);
-    } catch (_) {
+    final storageRef = _extractStorageRef(normalized);
+    final bucketsToTry = <String>{
+      storageRef.bucket,
+      ..._fallbackSelfieBuckets,
+    };
+
+    for (final bucket in bucketsToTry) {
       try {
-        return _client.storage.from('attendance-selfie').getPublicUrl(path);
-      } catch (_) {
-        return null;
-      }
+        return await _client.storage
+            .from(bucket)
+            .createSignedUrl(storageRef.path, 60 * 60);
+      } on StorageException catch (e) {
+        final message = e.message.toLowerCase();
+        if (message.contains('bucket not found') || e.statusCode == '404') {
+          continue;
+        }
+      } catch (_) {}
+
+      try {
+        return _client.storage.from(bucket).getPublicUrl(storageRef.path);
+      } catch (_) {}
     }
+
+    return null;
   }
 
   Future<void> clockIn({

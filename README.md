@@ -60,3 +60,10 @@ flutter build web
 
 ## Configuration
 - ตำแหน่งออฟฟิศและรัศมีตรวจสอบ อยู่ที่ `attendance_tracker/lib/services/location_service.dart`
+
+## Troubleshooting
+- ถ้าเจอ error `Bucket not found (404)` ตอนอัปโหลดรูป:
+  1. เข้า Supabase > Storage แล้วสร้าง bucket ชื่อ `attendance-selfie` (แนะนำ)
+  2. หรือใช้ชื่อ `attendance-selfies` ได้เช่นกัน (แอปรองรับ fallback)
+  3. ตรวจสอบสิทธิ์ bucket ให้ user ที่ล็อกอินสามารถ `insert/select` object ได้
+- ถ้ารูปไม่ขึ้นในหน้า History ให้ตรวจว่า field `selfie_url` ในตาราง `attendance` เก็บค่า path จริง (เช่น `attendance-selfie/<user_id>/<file>.jpg`)
