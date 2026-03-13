@@ -24,6 +24,35 @@ class _HistoryPageState extends State<HistoryPage> {
   String? errorMessage;
   String selectedFilter = 'all';
 
+  static const _historyTitleStyle = TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 22,
+    height: 1.2,
+  );
+
+  static const _sectionLabelStyle = TextStyle(
+    color: Color(0xFF7B8A85),
+    fontSize: 13,
+  );
+
+  static const _valueStyle = TextStyle(
+    fontWeight: FontWeight.w700,
+    fontSize: 22,
+    height: 1.15,
+  );
+
+  static const _metaStyle = TextStyle(
+    color: Color(0xFF6F7F79),
+    fontSize: 13,
+    height: 1.2,
+  );
+
+  static const _statusTextStyle = TextStyle(
+    color: Color(0xFF4D8A7E),
+    fontWeight: FontWeight.w700,
+    fontSize: 12,
+  );
+
   Future<void> loadData() async {
     setState(() {
       loading = true;
@@ -139,16 +168,13 @@ class _HistoryPageState extends State<HistoryPage> {
                       DateTime.tryParse((item['date'] ?? '').toString()) ??
                           DateTime.now(),
                     ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 30,
-                    ),
+                    style: _historyTitleStyle,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 10,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE2F2EB),
@@ -162,13 +188,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         size: 16,
                       ),
                       SizedBox(width: 6),
-                      Text(
-                        'Completed',
-                        style: TextStyle(
-                          color: Color(0xFF4D8A7E),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Text('Completed', style: _statusTextStyle),
                     ],
                   ),
                 ),
@@ -177,7 +197,7 @@ class _HistoryPageState extends State<HistoryPage> {
             const SizedBox(height: 4),
             Text(
               'Shift: ${(item['shift'] ?? 'general').toString().replaceFirstMapped(RegExp(r'^.'), (m) => m.group(0)!.toUpperCase())}',
-              style: const TextStyle(color: Color(0xFF6F7F79)),
+              style: _metaStyle,
             ),
             const SizedBox(height: 10),
             Row(
@@ -190,20 +210,11 @@ class _HistoryPageState extends State<HistoryPage> {
                         children: [
                           Icon(Icons.login, color: Color(0xFF4D8A7E), size: 18),
                           SizedBox(width: 8),
-                          Text(
-                            'Check In',
-                            style: TextStyle(color: Color(0xFF7B8A85)),
-                          ),
+                          Text('Check In', style: _sectionLabelStyle),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        formatTime(item['check_in']),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 36,
-                        ),
-                      ),
+                      Text(formatTime(item['check_in']), style: _valueStyle),
                     ],
                   ),
                 ),
@@ -219,20 +230,11 @@ class _HistoryPageState extends State<HistoryPage> {
                             size: 18,
                           ),
                           SizedBox(width: 8),
-                          Text(
-                            'Check Out',
-                            style: TextStyle(color: Color(0xFF7B8A85)),
-                          ),
+                          Text('Check Out', style: _sectionLabelStyle),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        formatTime(item['check_out']),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 36,
-                        ),
-                      ),
+                      Text(formatTime(item['check_out']), style: _valueStyle),
                     ],
                   ),
                 ),
@@ -247,10 +249,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   color: Color(0xFF8B9994),
                 ),
                 SizedBox(width: 6),
-                Text(
-                  'Office - Main Building',
-                  style: TextStyle(color: Color(0xFF71807B)),
-                ),
+                Text('Office - Main Building', style: _metaStyle),
               ],
             ),
             const Divider(height: 20),
@@ -262,17 +261,14 @@ class _HistoryPageState extends State<HistoryPage> {
                     children: [
                       const Text(
                         'Distance from office',
-                        style: TextStyle(color: Color(0xFF72807B)),
+                        style: _sectionLabelStyle,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         distance != null
                             ? '${distance.toStringAsFixed(1)} km'
                             : '-',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 32,
-                        ),
+                        style: _valueStyle,
                       ),
                     ],
                   ),
@@ -321,7 +317,7 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           const Text(
             'Filter By',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 10),
           _buildFilterChips(),
