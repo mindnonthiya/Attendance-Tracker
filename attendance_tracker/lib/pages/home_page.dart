@@ -56,7 +56,6 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final position = await LocationService.getCurrentLocation();
-
       final address = await LocationService.getAddressFromLatLng(
         position.latitude,
         position.longitude,
@@ -69,7 +68,6 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -82,9 +80,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> logout() async {
     await supabaseService.signOut();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -105,9 +101,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     refreshCurrentLocation();
     timeTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() => now = DateTime.now());
     });
   }
@@ -121,7 +115,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final userLabel =
-        supabaseService.currentUser?.email?.split('@').first ?? 'Employee';
+        supabaseService.currentUser?.email?.split('@').first ?? 'Sarah Johnson';
 
     final tabs = [
       _HomeDashboardTab(
@@ -139,24 +133,21 @@ class _HomePageState extends State<HomePage> {
       _AttendanceActionTab(
         action: AttendanceAction.checkIn,
         now: now,
-        onLocationUpdated: (point) {
-          setState(() {
-            currentLatitude = point.latitude;
-            currentLongitude = point.longitude;
-          });
-        },
+        userLabel: userLabel,
+        onOpenHistory: openHistory,
+        onLogout: logout,
       ),
       _AttendanceActionTab(
         action: AttendanceAction.checkOut,
         now: now,
-        onLocationUpdated: (point) {
-          setState(() {
-            currentLatitude = point.latitude;
-            currentLongitude = point.longitude;
-          });
-        },
+        userLabel: userLabel,
+        onOpenHistory: openHistory,
+        onLogout: logout,
       ),
       _MapTab(
+        userLabel: userLabel,
+        onOpenHistory: openHistory,
+        onLogout: logout,
         currentLatitude: currentLatitude,
         currentLongitude: currentLongitude,
         locationLoading: locationLoading,
@@ -165,77 +156,105 @@ class _HomePageState extends State<HomePage> {
     ];
 
     return Scaffold(
-      body: SafeArea(
-        child: IndexedStack(index: selectedTab, children: tabs),
-      ),
+      backgroundColor: const Color(0xFFF2F4F3),
+      body: SafeArea(child: IndexedStack(index: selectedTab, children: tabs)),
       bottomNavigationBar: NavigationBar(
-        height: 66,
+        height: 64,
         selectedIndex: selectedTab,
         onDestinationSelected: (index) {
           setState(() => selectedTab = index);
         },
+        indicatorColor: const Color(0x1A4A857A),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.login), label: 'Check In'),
           NavigationDestination(icon: Icon(Icons.logout), label: 'Check Out'),
-          NavigationDestination(icon: Icon(Icons.location_on), label: 'Map'),
+          NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
         ],
       ),
     );
   }
 }
 
-class _GradientHeader extends StatelessWidget {
-  const _GradientHeader({
-    required this.title,
-    required this.subtitle,
-    this.leading,
-    this.trailing,
-    this.bottomRadius = 24,
+class _TopProfileHeader extends StatelessWidget {
+  const _TopProfileHeader({
+    required this.userLabel,
+    required this.onOpenHistory,
+    required this.onLogout,
   });
 
-  final String title;
-  final String subtitle;
-  final Widget? leading;
-  final Widget? trailing;
-  final double bottomRadius;
+  final String userLabel;
+  final VoidCallback onOpenHistory;
+  final Future<void> Function() onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Good Morning',
+                style: TextStyle(color: Color(0xFF8C9893), fontSize: 14),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                userLabel,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 32,
+                  color: Color(0xFF1E2B29),
+                ),
+              ),
+              const Text(
+                'Acme Corporation',
+                style: TextStyle(color: Color(0xFF9AA5A0), fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuButton<String>(
+          color: Colors.white,
+          onSelected: (value) {
+            if (value == 'history') {
+              onOpenHistory();
+            } else {
+              onLogout();
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'history', child: Text('History')),
+            PopupMenuItem(value: 'logout', child: Text('Logout')),
+          ],
+          child: const CircleAvatar(
+            radius: 24,
+            backgroundColor: Color(0xFF4A857A),
+            child: Icon(Icons.person_outline, color: Colors.white),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SoftCard extends StatelessWidget {
+  const _SoftCard({required this.child, this.padding = const EdgeInsets.all(16)});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: padding,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF173F79), Color(0xFFDB2A4E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(bottomRadius),
-        ),
+        color: const Color(0xFFF8FAF9),
+        borderRadius: BorderRadius.circular(18),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      child: Row(
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: 10)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 30,
-                  ),
-                ),
-                Text(subtitle, style: const TextStyle(color: Colors.white70)),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      ),
+      child: child,
     );
   }
 }
@@ -267,196 +286,155 @@ class _HomeDashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeText = DateFormat('HH:mm').format(now);
-    final dateText = DateFormat('EEEE, MMMM d, y').format(now);
+    final dateText = DateFormat('EEEE, MMM d, y').format(now);
+    final timeText = DateFormat('hh:mm').format(now);
+    final meridiem = DateFormat('a').format(now);
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _GradientHeader(
-          title: 'Good Morning',
-          subtitle: userLabel,
-          bottomRadius: 26,
-          trailing: PopupMenuButton<String>(
-            color: Colors.white,
-            onSelected: (value) {
-              if (value == 'history') {
-                onOpenHistory();
-              } else {
-                onLogout();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'history', child: Text('History')),
-              PopupMenuItem(value: 'logout', child: Text('Logout')),
-            ],
-            child: const CircleAvatar(
-              backgroundColor: Color(0x3DFFFFFF),
-              child: Icon(Icons.person, color: Colors.white),
-            ),
-          ),
+        _TopProfileHeader(
+          userLabel: userLabel,
+          onOpenHistory: onOpenHistory,
+          onLogout: onLogout,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        const SizedBox(height: 10),
+        _SoftCard(
           child: Column(
             children: [
+              Text(
+                dateText,
+                style: const TextStyle(
+                  color: Color(0xFF818E89),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 timeText,
                 style: const TextStyle(
                   fontSize: 62,
                   height: 1,
-                  color: Color(0xFF1A3666),
+                  color: Color(0xFF1E2B29),
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
               Text(
-                dateText,
+                ':${DateFormat('ss').format(now)} $meridiem',
                 style: const TextStyle(
-                  color: Color(0xFF4D5B78),
+                  color: Color(0xFF70817A),
                   fontWeight: FontWeight.w600,
-                  fontSize: 22,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF27C887),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '• Checked In • Morning Shift',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
               ),
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: const Color(0xFFE9F0FF),
-                        child: Icon(
-                          Icons.location_on,
-                          color: Colors.blue.shade600,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'CURRENT LOCATION',
-                        style: TextStyle(
-                          letterSpacing: .3,
-                          color: Color(0xFF9DA7BD),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    currentAddress ?? 'Loading current address...',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF32435F),
-                    ),
-                  ),
-                  const Divider(height: 22),
-                 
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: locationLoading ? null : onRefreshLocation,
-                      icon: const Icon(Icons.sync),
-                      label: Text(
-                        locationLoading
-                            ? 'Updating current location...'
-                            : 'Update Current Location',
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E5D96),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Text(
-            'QUICK ACTIONS',
-            style: TextStyle(
-              color: Color(0xFF9AA5BB),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+        const SizedBox(height: 10),
+        _SoftCard(
           child: Row(
             children: [
-              Expanded(
-                child: _QuickActionCard(
-                  title: 'Check In',
-                  subtitle: 'Start your shift',
-                  icon: Icons.login,
-                  iconBg: const Color(0xFFD6F8E9),
-                  iconColor: const Color(0xFF2AB676),
-                  onTap: () => onTabChanged(1),
+              const Icon(Icons.brightness_1, size: 10, color: Color(0xFFE0A23A)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Not Checked In',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _QuickActionCard(
-                  title: 'Check Out',
-                  subtitle: 'End your shift',
-                  icon: Icons.logout,
-                  iconBg: const Color(0xFFFFE1E3),
-                  iconColor: const Color(0xFFF35C63),
-                  onTap: () => onTabChanged(2),
+              TextButton(
+                onPressed: () => onTabChanged(1),
+                child: const Text('Check In'),
+              ),
+              TextButton(
+                onPressed: () => onTabChanged(2),
+                child: const Text('Check Out'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionTile(
+                icon: Icons.login,
+                title: 'Check In',
+                subtitle: 'Tap to check in',
+                color: const Color(0xFF4A857A),
+                onTap: () => onTabChanged(1),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ActionTile(
+                icon: Icons.logout,
+                title: 'Check Out',
+                subtitle: 'Tap to check out',
+                color: const Color(0xFFC5715A),
+                onTap: () => onTabChanged(2),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _SoftCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  Text(
+                    'Recent Activity',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Spacer(),
+                  Text('Today', style: TextStyle(color: Color(0xFF9CA6A3))),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Center(
+                child: Text(
+                  'No activity yet today',
+                  style: TextStyle(color: Color(0xFFA1AAA7)),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: locationLoading ? null : onRefreshLocation,
+          icon: const Icon(Icons.near_me_outlined),
+          label: Text(
+            locationLoading ? 'Updating location...' : 'Refresh Current Location',
+          ),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A857A)),
+        ),
+        if (currentAddress != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Current: $currentAddress (${currentLatitude?.toStringAsFixed(4) ?? '--'}, ${currentLongitude?.toStringAsFixed(4) ?? '--'})',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF7D8985)),
+          ),
+        ],
       ],
     );
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
-  const _QuickActionCard({
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
+    required this.color,
     required this.onTap,
   });
 
+  final IconData icon;
   final String title;
   final String subtitle;
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -465,25 +443,28 @@ class _QuickActionCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Ink(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE7EBF3)),
+          color: color,
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              backgroundColor: iconBg,
-              child: Icon(icon, color: iconColor),
-            ),
-            const SizedBox(height: 12),
+            Icon(icon, color: Colors.white.withOpacity(0.9)),
+            const SizedBox(height: 10),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 24,
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Color(0xFF9AA5BB))),
+            Text(
+              subtitle,
+              style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -495,12 +476,16 @@ class _AttendanceActionTab extends StatefulWidget {
   const _AttendanceActionTab({
     required this.action,
     required this.now,
-    required this.onLocationUpdated,
+    required this.userLabel,
+    required this.onOpenHistory,
+    required this.onLogout,
   });
 
   final AttendanceAction action;
   final DateTime now;
-  final ValueChanged<LatLng> onLocationUpdated;
+  final String userLabel;
+  final VoidCallback onOpenHistory;
+  final Future<void> Function() onLogout;
 
   @override
   State<_AttendanceActionTab> createState() => _AttendanceActionTabState();
@@ -523,16 +508,11 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         maxWidth: 1080,
       );
 
-      if (photo == null) {
-        return;
-      }
-
+      if (photo == null) return;
       final bytes = await photo.readAsBytes();
       setState(() => selfieBytes = bytes);
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('เปิดกล้องไม่สำเร็จ: $e')));
@@ -562,7 +542,6 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
       );
 
       setState(() => lastDistance = distance);
-      widget.onLocationUpdated(LatLng(position.latitude, position.longitude));
 
       if (!LocationService.isWithinOfficeRadius(
         latitude: position.latitude,
@@ -588,10 +567,7 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         await supabaseService.clockOut(shift: selectedShift.dbValue);
       }
 
-      if (!mounted) {
-        return;
-      }
-
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -602,9 +578,7 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
         ),
       );
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -618,209 +592,137 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
   @override
   Widget build(BuildContext context) {
     final isCheckIn = widget.action == AttendanceAction.checkIn;
-    final title = isCheckIn ? 'Check In' : 'Check Out';
 
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        _GradientHeader(
-          title: title,
-          subtitle: isCheckIn
-              ? 'Verify your attendance'
-              : 'End your work shift',
-          leading: IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: const Color(0x33FFFFFF),
-            ),
-          ),
+        _TopProfileHeader(
+          userLabel: widget.userLabel,
+          onOpenHistory: widget.onOpenHistory,
+          onLogout: widget.onLogout,
         ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select Shift',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
-                  ),
-                  const SizedBox(height: 10),
-                  SegmentedButton<AttendanceShift>(
-                    segments: AttendanceShift.values
-                        .map(
-                          (shift) => ButtonSegment<AttendanceShift>(
-                            value: shift,
-                            label: Text(shift.label),
-                          ),
-                        )
-                        .toList(),
-                    selected: {selectedShift},
-                    onSelectionChanged: (selection) {
-                      setState(() => selectedShift = selection.first);
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Face Verification',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 26),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    height: 220,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22252C),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: 170,
-                          height: 170,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF18C49A),
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.account_circle,
-                          size: 90,
-                          color: Colors.white.withOpacity(.35),
-                        ),
-                        Positioned(
-                          bottom: 14,
-                          left: 14,
-                          right: 14,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(.6),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Position your face within the circle',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: loading ? null : takeSelfie,
-                      icon: const Icon(Icons.camera_alt_outlined),
-                      label: Text(
-                        selfieBytes == null ? 'Scan Face' : 'Scan Again',
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E5D96),
-                      ),
-                    ),
-                  ),
-                  if (selfieBytes != null) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.memory(
-                        selfieBytes!,
-                        height: 120,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Distance from Office',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 28,
-                          ),
-                        ),
-                      ),
-                      if (lastDistance != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: lastDistance! <= 200
-                                ? const Color(0xFFD8F7E8)
-                                : const Color(0xFFFFE0E3),
-                          ),
-                          child: Text(
-                            lastDistance! <= 200
-                                ? 'Within Range'
-                                : 'Out of Range',
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${(lastDistance ?? 0).toStringAsFixed(0)}m',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 40,
-                      color: Color(0xFF1E3763),
-                    ),
-                  ),
-                  const Text(
-                    'from office entrance',
-                    style: TextStyle(color: Color(0xFF98A4BB)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: loading || selfieBytes == null ? null : submitAction,
-              icon: const Icon(Icons.check),
-              label: Text(isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'),
-              style: FilledButton.styleFrom(
+        const SizedBox(height: 10),
+        _SoftCard(
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 42,
                 backgroundColor: isCheckIn
-                    ? const Color(0xFF7DD8BD)
-                    : const Color(0xFFEF9AA5),
-                foregroundColor: Colors.white,
+                    ? const Color(0xFFE1F1EC)
+                    : const Color(0xFFF8E7E2),
+                child: Icon(
+                  isCheckIn ? Icons.login : Icons.logout,
+                  size: 34,
+                  color: isCheckIn
+                      ? const Color(0xFF4A857A)
+                      : const Color(0xFFC5715A),
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                isCheckIn ? 'Check In' : 'Check Out',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 30),
+              ),
+              Text(
+                DateFormat('hh:mm a').format(widget.now),
+                style: TextStyle(
+                  fontSize: 42,
+                  color: isCheckIn
+                      ? const Color(0xFF4A857A)
+                      : const Color(0xFFC5715A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                DateFormat('EEEE, MMM d, y').format(widget.now),
+                style: const TextStyle(color: Color(0xFF8A9590)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SoftCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Shift', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              SegmentedButton<AttendanceShift>(
+                segments: AttendanceShift.values
+                    .map(
+                      (shift) => ButtonSegment<AttendanceShift>(
+                        value: shift,
+                        label: Text(shift.label),
+                      ),
+                    )
+                    .toList(),
+                selected: {selectedShift},
+                onSelectionChanged: (selection) {
+                  setState(() => selectedShift = selection.first);
+                },
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: loading ? null : takeSelfie,
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: Text(selfieBytes == null ? 'Capture Selfie' : 'Retake Selfie'),
+              ),
+              if (selfieBytes != null) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    selfieBytes!,
+                    height: 120,
+                    width: 120,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SoftCard(
+          child: Row(
+            children: [
+              const Icon(Icons.place_outlined, color: Color(0xFF4A857A)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Office - Main Building\n${LocationService.officeLatitude.toStringAsFixed(4)}, ${LocationService.officeLongitude.toStringAsFixed(4)}',
+                  style: const TextStyle(color: Color(0xFF5E6D67)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _SoftCard(
+          child: Text(
+            'Work Duration\n-- hrs -- min',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+          ),
+        ),
+        if (lastDistance != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Distance from office: ${lastDistance!.toStringAsFixed(0)} m',
+            style: const TextStyle(color: Color(0xFF7B8682)),
+          ),
+        ],
+        const SizedBox(height: 10),
+        FilledButton(
+          onPressed: loading || selfieBytes == null ? null : submitAction,
+          style: FilledButton.styleFrom(
+            backgroundColor: isCheckIn
+                ? const Color(0xFF4A857A)
+                : const Color(0xFFC5715A),
+            foregroundColor: Colors.white,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'),
           ),
         ),
       ],
@@ -830,12 +732,18 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
 
 class _MapTab extends StatefulWidget {
   const _MapTab({
+    required this.userLabel,
+    required this.onOpenHistory,
+    required this.onLogout,
     required this.currentLatitude,
     required this.currentLongitude,
     required this.locationLoading,
     required this.onRefreshLocation,
   });
 
+  final String userLabel;
+  final VoidCallback onOpenHistory;
+  final Future<void> Function() onLogout;
   final double? currentLatitude;
   final double? currentLongitude;
   final bool locationLoading;
@@ -851,13 +759,10 @@ class _MapTabState extends State<_MapTab> {
 
   bool searching = false;
   LatLng? searchPoint;
-  String? searchLabel;
 
   Future<void> searchLocation() async {
     final query = searchController.text.trim();
-    if (query.isEmpty) {
-      return;
-    }
+    if (query.isEmpty) return;
 
     setState(() => searching = true);
     try {
@@ -882,27 +787,20 @@ class _MapTabState extends State<_MapTab> {
       }
 
       final first = decoded.first;
-      final lat = double.parse(first['lat'].toString());
-      final lon = double.parse(first['lon'].toString());
-      final point = LatLng(lat, lon);
+      final point = LatLng(
+        double.parse(first['lat'].toString()),
+        double.parse(first['lon'].toString()),
+      );
 
-      setState(() {
-        searchPoint = point;
-        searchLabel = first['display_name']?.toString();
-      });
-
+      setState(() => searchPoint = point);
       mapController.move(point, 16);
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
-      if (mounted) {
-        setState(() => searching = false);
-      }
+      if (mounted) setState(() => searching = false);
     }
   }
 
@@ -923,156 +821,108 @@ class _MapTabState extends State<_MapTab> {
         ? LatLng(widget.currentLatitude!, widget.currentLongitude!)
         : null;
 
-    final points = [
-      office,
-      if (current != null) current,
-      if (searchPoint != null) searchPoint!,
-    ];
-
     return ListView(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
       children: [
-        const _GradientHeader(
-          title: 'Location Map',
-          subtitle: 'View office & your location',
+        _TopProfileHeader(
+          userLabel: widget.userLabel,
+          onOpenHistory: widget.onOpenHistory,
+          onLogout: widget.onLogout,
         ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: TextField(
-            controller: searchController,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => searchLocation(),
-            decoration: const InputDecoration(
-              hintText: 'Search locations...',
-              prefixIcon: Icon(Icons.search),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 320,
-              child: FlutterMap(
-                mapController: mapController,
-                options: MapOptions(
-                  initialCenter: current ?? office,
-                  initialZoom: 16,
-                  cameraConstraint: CameraConstraint.contain(
-                    bounds: LatLngBounds.fromPoints(points),
+        const SizedBox(height: 10),
+        _SoftCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                child: SizedBox(
+                  height: 220,
+                  child: FlutterMap(
+                    mapController: mapController,
+                    options: MapOptions(initialCenter: current ?? office, initialZoom: 15),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.attendance_tracker',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: office,
+                            width: 44,
+                            height: 44,
+                            child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                          ),
+                          if (current != null)
+                            Marker(
+                              point: current,
+                              width: 24,
+                              height: 24,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF4A857A),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 3),
+                                ),
+                              ),
+                            ),
+                          if (searchPoint != null)
+                            Marker(
+                              point: searchPoint!,
+                              width: 42,
+                              height: 42,
+                              child: const Icon(
+                                Icons.place,
+                                color: Color(0xFFC5715A),
+                                size: 36,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.attendance_tracker',
-                  ),
-                  CircleLayer(
-                    circles: [
-                      CircleMarker(
-                        point: office,
-                        color: const Color(0x1A4E78FF),
-                        borderColor: const Color(0xFF4E78FF),
-                        borderStrokeWidth: 2,
-                        radius: 80,
-                        useRadiusInMeter: true,
-                      ),
-                    ],
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: office,
-                        width: 44,
-                        height: 44,
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: 36,
-                        ),
-                      ),
-                      if (current != null)
-                        Marker(
-                          point: current,
-                          width: 20,
-                          height: 20,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF2596FF),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x662596FF),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      if (searchPoint != null)
-                        Marker(
-                          point: searchPoint!,
-                          width: 42,
-                          height: 42,
-                          child: const Icon(
-                            Icons.place,
-                            color: Color(0xFFE67E22),
-                            size: 36,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
               ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-          child: FilledButton.icon(
-            onPressed: widget.locationLoading ? null : widget.onRefreshLocation,
-            icon: const Icon(Icons.sync),
-            label: Text(
-              widget.locationLoading ? 'Refreshing...' : 'Refresh Location',
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2E5D96),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Your Coordinates\n${current?.latitude.toStringAsFixed(4) ?? '--'},\n${current?.longitude.toStringAsFixed(4) ?? '--'}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_searching, color: Color(0xFF4A857A)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your Location\n${current?.latitude.toStringAsFixed(4) ?? '--'}, ${current?.longitude.toStringAsFixed(4) ?? '--'}',
+                        style: const TextStyle(color: Color(0xFF63706B)),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Office Coordinates\n${office.latitude.toStringAsFixed(4)},\n${office.longitude.toStringAsFixed(4)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: searchController,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => searchLocation(),
+          decoration: InputDecoration(
+            hintText: 'Search locations...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: IconButton(
+              onPressed: searching ? null : searchLocation,
+              icon: const Icon(Icons.arrow_forward),
             ),
           ),
         ),
-        if (searchLabel != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text('Search result: $searchLabel'),
-          ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: widget.locationLoading ? null : widget.onRefreshLocation,
+          icon: const Icon(Icons.my_location),
+          label: Text(widget.locationLoading ? 'Refreshing...' : 'Refresh Location'),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4A857A)),
+        ),
       ],
     );
   }
