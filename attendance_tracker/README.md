@@ -33,6 +33,62 @@ Attendance Tracker คือแอปลงเวลาเข้างาน (Mo
 ### 2) Storage Bucket
 - สร้าง bucket ชื่อ `attendance-selfie` สำหรับเก็บรูปยืนยันใบหน้า
 
+
+### 3) สิ่งที่ต้องมีใน Supabase "ตอนนี้" (Checklist)
+- ✅ มี bucket อย่างน้อย 1 อันในนี้: `attendance-selfie` (แนะนำ) หรือ `attendance-selfies`
+- ✅ ตาราง `attendance` เปิด RLS แล้ว
+- ✅ policy ให้ผู้ใช้ที่ล็อกอินแล้ว `insert/select/update` ได้เฉพาะแถวของตัวเอง (`user_id = auth.uid()`)
+- ✅ policy ของ `storage.objects` สำหรับ bucket รูป ให้ผู้ใช้ที่ล็อกอินแล้วอัปโหลด/อ่านรูปของโฟลเดอร์ตัวเอง (`<uid>/...`) ได้
+
+### 4) SQL ตัวอย่าง Policy ที่แนะนำ
+> รันใน Supabase SQL Editor แล้วปรับชื่อ policy ได้ตามต้องการ
+
+```sql
+-- attendance table (RLS)
+alter table public.attendance enable row level security;
+
+create policy "attendance_select_own"
+on public.attendance
+for select
+to authenticated
+using (auth.uid() = user_id);
+
+create policy "attendance_insert_own"
+on public.attendance
+for insert
+to authenticated
+with check (auth.uid() = user_id);
+
+create policy "attendance_update_own"
+on public.attendance
+for update
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+```
+
+```sql
+-- storage.objects (selfie bucket)
+-- ใช้ได้ทั้ง attendance-selfie และ attendance-selfies
+create policy "selfie_read_own"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id in ('attendance-selfie', 'attendance-selfies')
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "selfie_insert_own"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id in ('attendance-selfie', 'attendance-selfies')
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+```
+
 ## Run Locally
 ```bash
 flutter pub get
