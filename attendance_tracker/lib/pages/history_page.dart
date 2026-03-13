@@ -7,7 +7,9 @@ import '../services/location_service.dart';
 import '../services/supabase_service.dart';
 
 class HistoryPage extends StatefulWidget {
-  const HistoryPage({super.key});
+  const HistoryPage({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -29,27 +31,23 @@ class _HistoryPageState extends State<HistoryPage> {
 
     try {
       final response = await supabaseService.history();
-      setState(() {
-        data = response;
-      });
+      if (!mounted) return;
+      setState(() => data = response);
     } catch (e) {
-      setState(() {
-        errorMessage = e.toString();
-      });
+      if (!mounted) return;
+      setState(() => errorMessage = e.toString());
     } finally {
-      setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
   String formatDate(dynamic dateString) {
-    if (dateString == null) {
-      return '-';
-    }
+    if (dateString == null) return '-';
 
     final dt = DateTime.tryParse(dateString.toString());
-    if (dt == null) {
-      return dateString.toString();
-    }
+    if (dt == null) return dateString.toString();
 
     return dateFormat.format(dt.toLocal());
   }
@@ -67,144 +65,137 @@ class _HistoryPageState extends State<HistoryPage> {
     loadData();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBody() {
     if (loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Attendance History')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Attendance History')),
-        body: RefreshIndicator(
-          onRefresh: loadData,
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              const SizedBox(height: 80),
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              const Text(
-                'โหลดประวัติไม่สำเร็จ',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(errorMessage!, textAlign: TextAlign.center),
-            ],
-          ),
+      return RefreshIndicator(
+        onRefresh: loadData,
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SizedBox(height: 80),
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 12),
+            const Text(
+              'โหลดประวัติไม่สำเร็จ',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(errorMessage!, textAlign: TextAlign.center),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Attendance History')),
-      body: data.isEmpty
-          ? RefreshIndicator(
-              onRefresh: loadData,
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  const SizedBox(height: 120),
-                  const Icon(Icons.history_toggle_off, size: 48),
-                  const SizedBox(height: 12),
-                  const Center(child: Text('ยังไม่มีข้อมูลประวัติลงเวลา')),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Current user: ${supabaseService.currentUser?.id ?? '-'}',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: loadData,
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: data.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final item = data[index];
-                  final selfieUrl =
-                      item['selfie_display_url']?.toString() ??
-                      item['selfie_url']?.toString();
+    if (data.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: loadData,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const SizedBox(height: 120),
+            const Icon(Icons.history_toggle_off, size: 48),
+            const SizedBox(height: 12),
+            const Center(child: Text('ยังไม่มีข้อมูลประวัติลงเวลา')),
+            const SizedBox(height: 8),
+            Text(
+              'Current user: ${supabaseService.currentUser?.id ?? '-'}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      );
+    }
 
-                  return Card(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => openDetail(item),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: selfieUrl != null && selfieUrl.isNotEmpty
-                                  ? Image.network(
-                                      selfieUrl,
-                                      width: 82,
-                                      height: 82,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => Container(
-                                        width: 82,
-                                        height: 82,
-                                        color: Colors.grey.shade200,
-                                        child: const Icon(Icons.broken_image),
-                                      ),
-                                    )
-                                  : Container(
-                                      width: 82,
-                                      height: 82,
-                                      color: Colors.grey.shade200,
-                                      child: const Icon(
-                                        Icons.image_not_supported,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${item['date']} • ${item['shift'] ?? 'general'}',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text('In: ${formatDate(item['check_in'])}'),
-                                  Text('Out: ${formatDate(item['check_out'])}'),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5FF),
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                    child: const Text('แตะเพื่อดูรายละเอียด'),
-                                  ),
-                                ],
+    return RefreshIndicator(
+      onRefresh: loadData,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: data.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final item = data[index];
+          final selfieUrl =
+              item['selfie_display_url']?.toString() ?? item['selfie_url']?.toString();
+
+          return Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => openDetail(item),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: selfieUrl != null && selfieUrl.isNotEmpty
+                          ? Image.network(
+                              selfieUrl,
+                              width: 82,
+                              height: 82,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                width: 82,
+                                height: 82,
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.broken_image),
                               ),
+                            )
+                          : Container(
+                              width: 82,
+                              height: 82,
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.image_not_supported),
                             ),
-                            const Icon(Icons.chevron_right),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item['date']} • ${item['shift'] ?? 'general'}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text('In: ${formatDate(item['check_in'])}'),
+                          Text('Out: ${formatDate(item['check_out'])}'),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5FF),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: const Text('แตะเพื่อดูรายละเอียด'),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                },
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
               ),
             ),
+          );
+        },
+      ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _buildBody();
+    }
+
+    return Scaffold(appBar: AppBar(title: const Text('Attendance History')), body: _buildBody());
   }
 }
 
@@ -214,14 +205,10 @@ class HistoryDetailPage extends StatelessWidget {
   final Map<String, dynamic> item;
 
   String formatDate(dynamic dateString) {
-    if (dateString == null) {
-      return '-';
-    }
+    if (dateString == null) return '-';
 
     final dt = DateTime.tryParse(dateString.toString());
-    if (dt == null) {
-      return dateString.toString();
-    }
+    if (dt == null) return dateString.toString();
 
     return DateFormat('dd MMM yyyy, HH:mm').format(dt.toLocal());
   }
@@ -231,8 +218,7 @@ class HistoryDetailPage extends StatelessWidget {
     final latitude = (item['latitude'] as num?)?.toDouble();
     final longitude = (item['longitude'] as num?)?.toDouble();
     final selfieUrl =
-        item['selfie_display_url']?.toString() ??
-        item['selfie_url']?.toString();
+        item['selfie_display_url']?.toString() ?? item['selfie_url']?.toString();
 
     return Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดประวัติ')),
@@ -296,10 +282,7 @@ class _HistoryMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final office = LatLng(
-      LocationService.officeLatitude,
-      LocationService.officeLongitude,
-    );
+    final office = LatLng(LocationService.officeLatitude, LocationService.officeLongitude);
     final attendancePoint = LatLng(latitude, longitude);
 
     return ClipRRect(
@@ -325,11 +308,7 @@ class _HistoryMap extends StatelessWidget {
                   point: office,
                   width: 40,
                   height: 40,
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Color(0xFF1F3C88),
-                    size: 34,
-                  ),
+                  child: const Icon(Icons.location_on, color: Color(0xFF1F3C88), size: 34),
                 ),
                 Marker(
                   point: attendancePoint,

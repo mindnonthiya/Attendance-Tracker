@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/location_service.dart';
 import '../services/supabase_service.dart';
+import 'history_page.dart';
 import 'login_page.dart';
 
 enum AttendanceShift { morning, afternoon, evening }
@@ -149,7 +150,7 @@ class _HomePageState extends State<HomePage> {
         onRefreshLocation: refreshCurrentLocation,
         onLogout: logout,
       ),
-      _HistoryTab(userLabel: userLabel, onLogout: logout),
+      const HistoryPage(embedded: true),
       _MapTab(
         userLabel: userLabel,
         onLogout: logout,
@@ -794,127 +795,6 @@ class _AttendanceActionTabState extends State<_AttendanceActionTab> {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(isCheckIn ? 'Confirm Check In' : 'Confirm Check Out'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HistoryTab extends StatefulWidget {
-  const _HistoryTab({required this.userLabel, required this.onLogout});
-
-  final String userLabel;
-  final Future<void> Function() onLogout;
-
-  @override
-  State<_HistoryTab> createState() => _HistoryTabState();
-}
-
-class _HistoryTabState extends State<_HistoryTab> {
-  final supabaseService = AttendanceSupabaseService();
-
-  bool loading = true;
-  String? errorMessage;
-  List<Map<String, dynamic>> records = [];
-
-  Future<void> loadHistory() async {
-    setState(() {
-      loading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final response = await supabaseService.history();
-      if (!mounted) return;
-      setState(() => records = response);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => errorMessage = e.toString());
-    } finally {
-      if (mounted) {
-        setState(() => loading = false);
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    loadHistory();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-      children: [
-        _HeaderBar(userLabel: widget.userLabel, onLogout: widget.onLogout),
-        const SizedBox(height: 10),
-        _SoftPanel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Attendance History',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
-              ),
-              const SizedBox(height: 14),
-              if (loading)
-                const Center(child: CircularProgressIndicator())
-              else if (errorMessage != null)
-                Text(
-                  errorMessage!,
-                  style: const TextStyle(color: Color(0xFFB34C4C)),
-                )
-              else if (records.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Text(
-                      'No records yet',
-                      style: TextStyle(color: Color(0xFFA0ABA7)),
-                    ),
-                  ),
-                )
-              else
-                ...records.take(20).map((item) {
-                  final checkIn = item['check_in']?.toString() ?? '-';
-                  final checkOut = item['check_out']?.toString() ?? '-';
-                  final date = item['date']?.toString() ?? '-';
-                  final shift = item['shift']?.toString() ?? 'general';
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4F3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '$date • $shift',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('In: $checkIn'),
-                        Text('Out: $checkOut'),
-                      ],
-                    ),
-                  );
-                }),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: loadHistory,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh History'),
-                ),
-              ),
-            ],
           ),
         ),
       ],
