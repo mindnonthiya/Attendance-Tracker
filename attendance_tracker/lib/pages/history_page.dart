@@ -363,10 +363,36 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 }
 
-class HistoryDetailPage extends StatelessWidget {
+class HistoryDetailPage extends StatefulWidget {
   const HistoryDetailPage({super.key, required this.item});
 
   final Map<String, dynamic> item;
+
+  @override
+  State<HistoryDetailPage> createState() => _HistoryDetailPageState();
+}
+
+class _HistoryDetailPageState extends State<HistoryDetailPage> {
+  late final Future<String?> _addressFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _addressFuture = _resolveAddress();
+  }
+
+  Future<String?> _resolveAddress() async {
+    final latitude = (widget.item['latitude'] as num?)?.toDouble();
+    final longitude = (widget.item['longitude'] as num?)?.toDouble();
+
+    if (latitude == null || longitude == null) return null;
+
+    try {
+      return await LocationService.getAddressFromLatLng(latitude, longitude);
+    } catch (_) {
+      return null;
+    }
+  }
 
   String formatDate(dynamic dateString) {
     if (dateString == null) return '-';
@@ -379,15 +405,15 @@ class HistoryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latitude = (item['latitude'] as num?)?.toDouble();
-    final longitude = (item['longitude'] as num?)?.toDouble();
+    final latitude = (widget.item['latitude'] as num?)?.toDouble();
+    final longitude = (widget.item['longitude'] as num?)?.toDouble();
     final checkInSelfieUrl =
-        item['selfie_check_in_display_url']?.toString() ??
-        item['selfie_display_url']?.toString() ??
-        item['selfie_url']?.toString();
+        widget.item['selfie_check_in_display_url']?.toString() ??
+        widget.item['selfie_display_url']?.toString() ??
+        widget.item['selfie_url']?.toString();
     final checkOutSelfieUrl =
-        item['selfie_check_out_display_url']?.toString() ??
-        item['selfie_check_out_url']?.toString();
+        widget.item['selfie_check_out_display_url']?.toString() ??
+        widget.item['selfie_check_out_url']?.toString();
 
     return Scaffold(
       appBar: AppBar(title: const Text('รายละเอียดประวัติ')),
@@ -404,13 +430,30 @@ class HistoryDetailPage extends StatelessWidget {
             imageUrl: checkOutSelfieUrl,
           ),
           const SizedBox(height: 16),
-          Text('วันที่: ${item['date'] ?? '-'}'),
-          Text('กะ: ${item['shift'] ?? 'general'}'),
-          Text('เวลาเข้างาน: ${formatDate(item['check_in'])}'),
-          Text('เวลาออกงาน: ${formatDate(item['check_out'])}'),
+          Text('วันที่: ${widget.item['date'] ?? '-'}'),
+          Text('กะ: ${widget.item['shift'] ?? 'general'}'),
+          Text('เวลาเข้างาน: ${formatDate(widget.item['check_in'])}'),
+          Text('เวลาออกงาน: ${formatDate(widget.item['check_out'])}'),
           const SizedBox(height: 8),
-          Text('ละติจูด: ${latitude?.toStringAsFixed(6) ?? '-'}'),
-          Text('ลองจิจูด: ${longitude?.toStringAsFixed(6) ?? '-'}'),
+          FutureBuilder<String?>(
+            future: _addressFuture,
+            builder: (context, snapshot) {
+              if (latitude == null || longitude == null) {
+                return const Text('สถานที่: -');
+              }
+
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Text('สถานที่: กำลังโหลดที่อยู่...');
+              }
+
+              final address = snapshot.data;
+              if (address == null || address.trim().isEmpty) {
+                return const Text('สถานที่: ไม่สามารถระบุที่อยู่ได้');
+              }
+
+              return Text('สถานที่: $address');
+            },
+          ),
           const SizedBox(height: 12),
           if (latitude != null && longitude != null) ...[
             Text(
