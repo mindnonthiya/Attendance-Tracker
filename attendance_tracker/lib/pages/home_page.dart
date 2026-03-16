@@ -1206,7 +1206,7 @@ class _MapTabState extends State<_MapTab> {
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Office Info\nMain Office\n123 Business Street\nNew York, NY 10001',
+                  'Office Info\nMain Office\n98 Sathorn Square\nNorth Sathorn Rd.,\nSilom, Bangrak, Bangkok',
                   style: TextStyle(color: Color(0xFF6C7974)),
                 ),
               ),

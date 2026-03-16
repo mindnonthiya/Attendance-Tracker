@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class LocationService {
-  static const officeLatitude = 14.03820;
-  static const officeLongitude = 100.61732;
+  static const officeLatitude = 13.7236;
+  static const officeLongitude = 100.5295;
   static const maxDistanceMeters = 200.0;
 
   static Future<Position> getCurrentLocation() async {
